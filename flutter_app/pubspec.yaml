@@ -1,0 +1,22 @@
+name: commerce_trust_lab
+description: A transparent commerce-agent demo with grounded catalog evidence.
+publish_to: none
+version: 0.1.0+1
+
+environment:
+  sdk: '>=3.14.0 <4.0.0'
+  flutter: '>=3.50.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.6.0
+  material_ui: ^1.11.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true

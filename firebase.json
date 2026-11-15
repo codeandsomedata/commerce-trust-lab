@@ -1,0 +1,6 @@
+{
+  "functions": [{"source":"functions","codebase":"commerce-trust"}],
+  "firestore": {"rules":"firestore.rules","indexes":"firestore.indexes.json"},
+  "hosting": {"public":"web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"/api/**","function":{"functionId":"commerce","region":"us-central1"}}]},
+  "emulators": {"functions":{"host":"127.0.0.1","port":5001},"firestore":{"host":"127.0.0.1","port":8080},"hosting":{"host":"127.0.0.1","port":5002},"ui":{"enabled":true,"port":4000},"singleProjectMode":true}
+}

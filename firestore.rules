@@ -1,0 +1,7 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Client apps go through the catalog API. Admin SDK uses IAM and server policy.
+    match /{document=**} { allow read, write: if false; }
+  }
+}

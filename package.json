@@ -1,0 +1,16 @@
+{
+  "name": "commerce-trust-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node --test functions/test/*.test.mjs",
+    "eval": "node scripts/evaluate.mjs",
+    "check:gemini": "node scripts/check-gemini.mjs",
+    "emulators": "node scripts/emulators.mjs",
+    "seed": "node scripts/seed.mjs"
+  },
+  "devDependencies": {"firebase-tools": "15.36.0"}
+}
