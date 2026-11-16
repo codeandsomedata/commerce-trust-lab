@@ -127,4 +127,4 @@ Live Gemini/Ollama and a deployed Firebase backend require separate configuratio
 - [Dart HTTP client](https://pub.dev/packages/http), BSD-3-Clause.
 - [Flutter networking guide](https://docs.flutter.dev/cookbook/networking/send-data).
 
-This is an interview prototype, not a Microsoft product or an integration with a grocery retailer.
+This prototype uses synthetic catalog data and does not integrate with a grocery retailer.

@@ -5,11 +5,13 @@ import 'package:material_ui/material_ui.dart';
 
 import 'catalog_api.dart';
 
-const ink = Color(0xFF173D3B);
-const teal = Color(0xFF006D67);
-const paper = Color(0xFFF6F7F3);
-const line = Color(0xFFDCE5DF);
-const traceBackground = Color(0xFF122726);
+const ink = Color(0xFF202124);
+const primary = Color(0xFF1A73E8);
+const paper = Color(0xFFF8FAFD);
+const line = Color(0xFFDADCE0);
+const traceBackground = Color(0xFFFFFFFF);
+const secondaryInk = Color(0xFF5F6368);
+const success = Color(0xFF137333);
 
 void main() => runApp(const CommerceTrustApp());
 
@@ -23,7 +25,12 @@ class CommerceTrustApp extends StatelessWidget {
     debugShowCheckedModeBanner: false,
     theme: ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(seedColor: teal),
+      colorScheme: ColorScheme.fromSeed(seedColor: primary).copyWith(
+        primary: primary,
+        onPrimary: Colors.white,
+        surface: Colors.white,
+        surfaceTint: Colors.transparent,
+      ),
       scaffoldBackgroundColor: paper,
       textTheme: const TextTheme(
         bodyMedium: TextStyle(color: ink, height: 1.45),
@@ -31,10 +38,32 @@ class CommerceTrustApp extends StatelessWidget {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: Colors.white,
+        fillColor: paper,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(24),
           borderSide: const BorderSide(color: line),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: line),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(24),
+          borderSide: const BorderSide(color: primary, width: 1.5),
+        ),
+        hintStyle: const TextStyle(color: secondaryInk, fontSize: 14),
+      ),
+      chipTheme: ChipThemeData(
+        backgroundColor: Colors.white,
+        selectedColor: const Color(0xFFE8F0FE),
+        checkmarkColor: primary,
+        side: const BorderSide(color: line),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+      ),
+      filledButtonTheme: FilledButtonThemeData(
+        style: FilledButton.styleFrom(
+          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 17),
+          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
         ),
       ),
     ),
@@ -242,10 +271,17 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: teal,
-            borderRadius: BorderRadius.circular(12),
+            color: Colors.white,
+            border: Border.all(color: line),
+            borderRadius: BorderRadius.circular(16),
           ),
-          child: const Icon(Icons.hub_outlined, color: Colors.white, size: 25),
+          child: const Column(
+            children: [
+              Icon(Icons.hub_outlined, color: primary, size: 25),
+              SizedBox(height: 5),
+              _IdentityDots(),
+            ],
+          ),
         ),
         const SizedBox(width: 13),
         const Expanded(
@@ -258,7 +294,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   fontSize: 22,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w500,
                   letterSpacing: -0.6,
                 ),
               ),
@@ -267,13 +303,13 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                 'From a shopping question to a trusted action.',
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 13, color: Color(0xFF637570)),
+                style: TextStyle(fontSize: 13, color: Color(0xFF5F6368)),
               ),
             ],
           ),
         ),
         if (MediaQuery.sizeOf(context).width >= 650)
-          const _Pill('SYNTHETIC CATALOG', color: Color(0xFF85632F)),
+          const _Pill('SYNTHETIC CATALOG', color: Color(0xFF8A5A00)),
       ],
     ),
   );
@@ -301,10 +337,10 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                       _scenarios[_scenario]!,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: teal, fontSize: 12),
+                      style: const TextStyle(color: primary, fontSize: 12),
                     ),
                   ),
-                  const Icon(Icons.expand_more, size: 16, color: teal),
+                  const Icon(Icons.expand_more, size: 16, color: primary),
                 ],
               ),
             ),
@@ -336,7 +372,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
               children: [
                 Text(_mode.toUpperCase(), style: const TextStyle(fontSize: 11)),
                 const SizedBox(width: 6),
-                const Icon(Icons.expand_more, size: 16, color: teal),
+                const Icon(Icons.expand_more, size: 16, color: primary),
               ],
             ),
           ),
@@ -349,7 +385,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
     decoration: BoxDecoration(
       color: Colors.white,
       border: Border.all(color: line),
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(24),
     ),
     clipBehavior: Clip.antiAlias,
     child: Column(
@@ -365,14 +401,23 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '01  /  ASSISTANT',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 1.6,
-                        color: teal,
-                      ),
+                    const Row(
+                      children: [
+                        Icon(
+                          Icons.chat_bubble_outline_rounded,
+                          color: primary,
+                          size: 18,
+                        ),
+                        SizedBox(width: 9),
+                        Text(
+                          'Shopping assistant',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: ink,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 12),
                     Wrap(
@@ -475,7 +520,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                     tooltip: 'Send request',
                     onPressed: _busy ? null : () => _ask(),
                     style: IconButton.styleFrom(
-                      backgroundColor: teal,
+                      backgroundColor: primary,
                       padding: const EdgeInsets.all(15),
                     ),
                     icon: const Icon(Icons.arrow_upward),
@@ -487,7 +532,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                 const Text(
                   'Illustrative prices and merchants. Demo carts do not place '
                   'orders or reserve inventory.',
-                  style: TextStyle(fontSize: 11, color: Color(0xFF6C7975)),
+                  style: TextStyle(fontSize: 11, color: Color(0xFF5F6368)),
                 ),
               ],
             ],
@@ -501,19 +546,28 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       const SizedBox(height: 20),
-      const Text(
-        'A useful answer.\nEvidence you can inspect.',
+      const Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: 'What can I help\n'),
+            TextSpan(
+              text: 'you find?',
+              style: TextStyle(color: primary),
+            ),
+          ],
+        ),
         style: TextStyle(
-          fontSize: 30,
-          fontWeight: FontWeight.w600,
-          height: 1.2,
-          letterSpacing: -0.8,
+          fontSize: 36,
+          fontWeight: FontWeight.w500,
+          height: 1.18,
+          letterSpacing: -1,
         ),
       ),
       const SizedBox(height: 18),
       const Text(
         'Ask for groceries. The backend checks the catalog, stock, '
         'freshness, and merchant permissions before offering an action.',
+        style: TextStyle(color: secondaryInk, height: 1.6),
       ),
       const SizedBox(height: 24),
       for (final suggestion in [
@@ -526,8 +580,11 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
             style: OutlinedButton.styleFrom(
               alignment: Alignment.centerLeft,
               padding: const EdgeInsets.all(16),
+              foregroundColor: ink,
+              backgroundColor: paper,
+              side: const BorderSide(color: line),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(18),
               ),
             ),
             onPressed: () => _ask(suggestion),
@@ -535,7 +592,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
               children: [
                 Expanded(child: Text(suggestion)),
                 const SizedBox(width: 12),
-                const Icon(Icons.north_east, size: 16),
+                const Icon(Icons.north_east, size: 16, color: primary),
               ],
             ),
           ),
@@ -545,7 +602,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
         _mode == 'demo'
             ? 'DEMO MODE: NO MODEL CALL'
             : '${_mode.toUpperCase()} MODE: SERVER MUST BE CONFIGURED',
-        color: const Color(0xFF637570),
+        color: const Color(0xFF5F6368),
       ),
     ],
   );
@@ -566,8 +623,8 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
               margin: const EdgeInsets.only(left: 36, bottom: 18),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF2EE),
-                borderRadius: BorderRadius.circular(15),
+                color: const Color(0xFFE8F0FE),
+                borderRadius: BorderRadius.circular(20),
               ),
               child: Text(turn.question),
             ),
@@ -579,10 +636,10 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
               _Pill(_scenarios[turn.scenario] ?? turn.scenario),
               _Pill(
                 result == null ? turn.mode : '${result['mode']}',
-                color: const Color(0xFF637570),
+                color: const Color(0xFF5F6368),
               ),
               if (result?['storage'] != null)
-                _Pill('${result!['storage']}', color: const Color(0xFF637570)),
+                _Pill('${result!['storage']}', color: const Color(0xFF5F6368)),
             ],
           ),
           const SizedBox(height: 12),
@@ -624,7 +681,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
               const SizedBox(height: 5),
               const Text(
                 'You approve this action. The server rechecks eligibility.',
-                style: TextStyle(fontSize: 11, color: Color(0xFF637570)),
+                style: TextStyle(fontSize: 11, color: Color(0xFF5F6368)),
               ),
             ],
             if (turn.cartError != null) ...[
@@ -659,7 +716,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
     padding: const EdgeInsets.all(17),
     decoration: BoxDecoration(
       color: paper,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(18),
       border: Border.all(color: line),
     ),
     child: Column(
@@ -694,15 +751,18 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
           spacing: 8,
           runSpacing: 5,
           children: [
-            _Pill('${offer['availability_status'] ?? 'unknown'}'),
-            const _Pill('SYNTHETIC OFFER', color: Color(0xFF85632F)),
+            _Pill(
+              '${offer['availability_status'] ?? 'unknown'}',
+              color: success,
+            ),
+            const _Pill('SYNTHETIC OFFER', color: Color(0xFF8A5A00)),
           ],
         ),
         const SizedBox(height: 10),
         SelectableText(
           'Observed: ${offer['observed_at'] ?? 'not supplied'}\n'
           'Source: ${offer['attribution'] ?? 'not supplied'}',
-          style: const TextStyle(fontSize: 11, color: Color(0xFF637570)),
+          style: const TextStyle(fontSize: 11, color: Color(0xFF5F6368)),
         ),
       ],
     ),
@@ -715,14 +775,14 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
     width: double.infinity,
     padding: const EdgeInsets.all(14),
     decoration: BoxDecoration(
-      color: error ? const Color(0xFFFFF1E9) : const Color(0xFFEAF5EE),
+      color: error ? const Color(0xFFFCE8E6) : const Color(0xFFE6F4EA),
       borderRadius: BorderRadius.circular(12),
     ),
     child: Text(
       text,
       style: TextStyle(
         fontSize: 13,
-        color: error ? const Color(0xFF8A4024) : teal,
+        color: error ? const Color(0xFFB3261E) : success,
       ),
     ),
   );
@@ -738,7 +798,8 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
     return Container(
       decoration: BoxDecoration(
         color: traceBackground,
-        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: line),
+        borderRadius: BorderRadius.circular(24),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(
@@ -750,14 +811,19 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (!compact)
-                  const Text(
-                    '02  /  UNDER THE HOOD',
-                    style: TextStyle(
-                      color: Color(0xFF8ED5C2),
-                      fontSize: 11,
-                      letterSpacing: 1.6,
-                      fontWeight: FontWeight.w700,
-                    ),
+                  const Row(
+                    children: [
+                      Icon(Icons.data_object, color: primary, size: 18),
+                      SizedBox(width: 9),
+                      Text(
+                        'Execution trace',
+                        style: TextStyle(
+                          color: secondaryInk,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
                   ),
                 if (!compact) const SizedBox(height: 12),
                 Text(
@@ -765,9 +831,9 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                   maxLines: compact ? 1 : null,
                   overflow: compact ? TextOverflow.ellipsis : null,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: ink,
                     fontSize: compact ? 17 : 23,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                     letterSpacing: -0.5,
                   ),
                 ),
@@ -777,7 +843,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                     'Tool inputs, catalog results, policy decisions, and the '
                     'grounding prompt returned by the server.',
                     style: TextStyle(
-                      color: Color(0xFFB3C9C2),
+                      color: Color(0xFF5F6368),
                       fontSize: 13,
                       height: 1.5,
                     ),
@@ -793,7 +859,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFFB3C9C2),
+                        color: Color(0xFF5F6368),
                         fontSize: 11,
                       ),
                     )
@@ -811,7 +877,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
               ],
             ),
           ),
-          const Divider(height: 1, color: Color(0xFF33504A)),
+          const Divider(height: 1, color: Color(0xFFDADCE0)),
           Expanded(
             child: events.isEmpty
                 ? SingleChildScrollView(
@@ -820,10 +886,17 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(
-                            Icons.account_tree_outlined,
-                            size: 42,
-                            color: Color(0xFF66988A),
+                          Container(
+                            padding: const EdgeInsets.all(22),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFE8F0FE),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(
+                              Icons.account_tree_outlined,
+                              size: 34,
+                              color: primary,
+                            ),
                           ),
                           const SizedBox(height: 18),
                           Text(
@@ -832,7 +905,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                                 : 'Send a request to inspect its execution.',
                             textAlign: TextAlign.center,
                             style: const TextStyle(
-                              color: Color(0xFFB3C9C2),
+                              color: Color(0xFF5F6368),
                               height: 1.5,
                             ),
                           ),
@@ -843,7 +916,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 11,
-                              color: Color(0xFF8BAAA0),
+                              color: Color(0xFF5F6368),
                               height: 1.5,
                             ),
                           ),
@@ -870,7 +943,7 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                   : 'Run: ${result['run_id']}  ·  Catalog: ${result['catalog_version']}',
               maxLines: compact ? 1 : null,
               overflow: compact ? TextOverflow.ellipsis : null,
-              style: const TextStyle(fontSize: 10, color: Color(0xFF8BAAA0)),
+              style: const TextStyle(fontSize: 10, color: Color(0xFF5F6368)),
             ),
           ),
         ],
@@ -881,12 +954,24 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
   Widget _traceMetric(String name, dynamic count) => Container(
     padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 14),
     decoration: BoxDecoration(
-      color: const Color(0xFF203C36),
-      borderRadius: BorderRadius.circular(10),
+      color: name == 'Eligible'
+          ? const Color(0xFFE6F4EA)
+          : name == 'Candidates'
+          ? const Color(0xFFE8F0FE)
+          : const Color(0xFFF1F3F4),
+      borderRadius: BorderRadius.circular(12),
     ),
     child: Text(
       '${count ?? '—'}  $name',
-      style: const TextStyle(color: Color(0xFFD5F0E3), fontSize: 12),
+      style: TextStyle(
+        color: name == 'Eligible'
+            ? success
+            : name == 'Candidates'
+            ? primary
+            : secondaryInk,
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+      ),
     ),
   );
 }
@@ -900,23 +985,23 @@ class _TraceEvent extends StatelessWidget {
   Widget build(BuildContext context) {
     final json = const JsonEncoder.withIndent('  ').convert(event['data']);
     return Material(
-      color: const Color(0xFF1A332E),
+      color: const Color(0xFFFFFFFF),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: const BorderSide(color: Color(0xFF345047)),
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Color(0xFFDADCE0)),
       ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
           key: PageStorageKey('${event['id']}-${event.hashCode}'),
           initiallyExpanded: index < 2,
-          iconColor: const Color(0xFF8ED5C2),
-          collapsedIconColor: const Color(0xFF8ED5C2),
+          iconColor: const Color(0xFF1A73E8),
+          collapsedIconColor: const Color(0xFF1A73E8),
           tilePadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 5),
           title: Text(
             '${index + 1}. ${event['title'] ?? event['kind']}',
             style: const TextStyle(
-              color: Colors.white,
+              color: ink,
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -924,7 +1009,7 @@ class _TraceEvent extends StatelessWidget {
           subtitle: Text(
             '${event['kind'] ?? 'event'}'
             '${event['duration_ms'] == null ? '' : ' · ${event['duration_ms']} ms'}',
-            style: const TextStyle(color: Color(0xFF8BAAA0), fontSize: 10),
+            style: const TextStyle(color: Color(0xFF5F6368), fontSize: 10),
           ),
           children: [
             Align(
@@ -934,7 +1019,7 @@ class _TraceEvent extends StatelessWidget {
                 icon: const Icon(
                   Icons.copy_outlined,
                   size: 15,
-                  color: Color(0xFF8ED5C2),
+                  color: Color(0xFF1A73E8),
                 ),
                 onPressed: () async {
                   await Clipboard.setData(ClipboardData(text: json));
@@ -948,14 +1033,19 @@ class _TraceEvent extends StatelessWidget {
             ),
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.fromLTRB(14, 0, 14, 16),
+              margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: paper,
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: SelectableText(
                 json,
                 style: const TextStyle(
                   fontFamily: 'monospace',
                   fontSize: 11,
                   height: 1.6,
-                  color: Color(0xFFC7E7D9),
+                  color: Color(0xFF3C4043),
                 ),
               ),
             ),
@@ -967,7 +1057,7 @@ class _TraceEvent extends StatelessWidget {
 }
 
 class _Pill extends StatelessWidget {
-  const _Pill(this.text, {this.color = teal});
+  const _Pill(this.text, {this.color = primary});
   final String text;
   final Color color;
 
@@ -976,7 +1066,7 @@ class _Pill extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
     decoration: BoxDecoration(
       color: color.withAlpha(18),
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: BorderRadius.circular(20),
     ),
     child: Text(
       text,
@@ -987,5 +1077,28 @@ class _Pill extends StatelessWidget {
         letterSpacing: 0.2,
       ),
     ),
+  );
+}
+
+class _IdentityDots extends StatelessWidget {
+  const _IdentityDots();
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      for (final color in const [
+        primary,
+        Color(0xFFEA4335),
+        Color(0xFFFBBC04),
+        Color(0xFF34A853),
+      ])
+        Container(
+          width: 4,
+          height: 4,
+          margin: const EdgeInsets.symmetric(horizontal: 1),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+    ],
   );
 }

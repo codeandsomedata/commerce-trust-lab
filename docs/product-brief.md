@@ -1,110 +1,68 @@
-# Commerce Trust Lab — product brief
+# Product scope and tradeoffs
 
-**Portfolio prototype, built with synthetic data.** This is a proposed product direction and a demonstration, not a Microsoft product, a production deployment, or evidence of commercial results. Kite Hill is an example brand; prices, inventory, merchants, and locations in the demo do not represent real merchant integrations. The default experience uses a deterministic tool workflow. Gemini or Ollama tool orchestration requires separate configuration and validation.
+Commerce Trust Lab demonstrates a narrow commerce workflow: find one eligible grocery offer, show the supporting evidence, and prepare a draft only after an explicit user action. The catalog and merchant records are synthetic. This document separates implemented product decisions from possible next steps.
 
-## Why this product fits the role
+## Goal
 
-The Microsoft **Principal Product Manager — Commerce AI Platform** role emphasizes shared commerce data, product and offer APIs, catalog quality, responsible partner exposure, and measurable readiness for AI experiences. Commerce Trust Lab makes those decisions visible: which product an offer represents, which offers can be exposed, whether their evidence is fresh enough, and when the experience should decline to answer. [Microsoft role page](https://apply.careers.microsoft.com/careers/job/1970393557051399-principal-product-manager-commerce-ai-platform-united-states-california-mountain-view), [readable description mirror](https://www.olive.jobs/job/pst_6222488ea116a0a5).
+Let a shopper ask for a supported yogurt pickup item within a USD budget and city, receive a grounded offer, and take one bounded next action. Let a developer inspect why the system answered, abstained, or declined to act.
 
-The role title matches the opportunity being discussed; the supplied job number **200064968 has not been independently confirmed** against the accessible posting.
+The reusable foundation is the product/offer API, eligibility policy, and draft-action contract. The Flutter and browser clients consume the same service.
 
-## Goal → trusted evidence and a useful next action
+## Customer pain points
 
-Help a shopper find an eligible, attributable local grocery offer and prepare a draft cart—or clearly explain what evidence is missing. Make the same contract reusable by partner experiences, so each partner does not have to reconstruct product identity, merchant permissions, freshness, and stock rules.
+- The lowest listed price may be stale, unavailable, in another city, or for another product variant.
+- A merchant's data may exist in storage without permission to display it in an AI experience.
+- An answer can become invalid before the customer acts.
+- A failed request is difficult to improve if the platform cannot distinguish missing coverage from permission, freshness, or stock problems.
+- A network retry must not create multiple drafts for the same approved action.
 
-The first product question is: **What must be true before an AI experience can recommend an offer and act on it?**
+## Priorities
 
-## Pain point → a fluent answer can still be wrong
+1. Preserve supported customer constraints instead of silently relaxing them.
+2. Require permitted, fresh, attributable evidence before recommending an offer.
+3. Separate a recommendation from an explicit action request.
+4. Revalidate at action time and make retries predictable.
+5. Expose a completed execution trace and repeatable failure cases.
 
-- A shopper asks for a particular yogurt below a budget in Mountain View; an offer for another product or location does not satisfy that request.
-- The lowest listed price is old enough that availability and price can no longer be trusted.
-- A merchant's data exists in the catalog, but the merchant has not permitted its use in this experience.
-- An offer becomes unavailable after it was recommended, before the shopper acts.
-- A partner receives an empty answer without knowing whether the cause is stale data, missing attributes, a rights restriction, or absent category coverage.
+## Implemented solution
 
-These are distinct problems. Treating them all as a prompt-quality issue conceals the work the platform needs to do.
+The example request is **“Get me Kite Hill yogurt under $6 in Mountain View.”** The service parses its supported constraints, reads the catalog, applies eligibility rules, and selects the lowest-priced eligible offer. If the selected merchant permits cart preparation, it stores a ten-minute proposal. **Prepare demo cart** consumes that proposal after revalidation and creates a draft; it does not purchase or reserve inventory.
 
-## Priorities → trust, useful coverage, then breadth
+The right-hand pane displays the tool call, eligible catalog evidence, aggregate policy outcomes, answer-composition step, and draft action. On small Flutter screens, the two panes become tabs. Events arrive with the completed response rather than as a live stream.
 
-1. **Correct identity and eligibility.** Match product, budget, and location. Apply rights, freshness, and stock filters before any offer reaches a model as usable evidence.
-2. **Explainable answers and failures.** Show sources, timestamps, rejection reasons, clarification needs, and tool activity. Avoid claiming current real-world prices from synthetic fixtures.
-3. **A reusable contract.** Expose documented product and offer data with consistent eligibility behavior, rather than embedding all rules in the chat surface.
-4. **A bounded, reliable action.** Revalidate the offer when the shopper explicitly chooses **Prepare demo cart**. Create a draft only, with retries that do not create duplicate drafts.
-5. **Observable catalog gaps.** Distinguish stale, restricted, and unavailable offers from absent coverage. Use those signals to choose the next investment.
+Demo mode is a deterministic workflow. Optional Gemini/Ollama modes perform structured extraction and evidence selection within the same boundaries. They must agree with the independent parser and deterministic offer ranking. Factual answer text is rendered by the application in all modes.
 
-For non-blocking improvements, prioritize **observed customer demand × severity of the gap × partner reach**, then weigh delivery effort and confidence in the evidence. Rights violations and identity errors are release gates, not defects that high request volume can justify.
+Products and offers are separate Firestore document types. The local server can use in-memory fixtures or the Firestore adapter; a Firebase HTTP function uses the same core. This is a document model, not a graph database. See [technical design](../README.md#technical-design) for the exact contracts.
 
-## Solution → a dual-pane grocery agent demo
+## Deliberate tradeoffs
 
-The main request is **“Get me Kite Hill yogurt under $6 in Mountain View.”** One pane shows the shopper conversation and the explicit draft-cart action. The other makes the platform evidence inspectable: product and offer data, eligibility decisions, and the tool trace. Baseline, stale, restricted, and out-of-stock scenarios show how the same request behaves when the evidence changes.
-
-An offer that is stale, restricted, or out of stock cannot become eligible because a model recommends it. If an eligible alternative remains, the system can select that alternative. If no qualifying offer remains, it should abstain and explain the gap without exposing restricted offer content as recommendation evidence.
-
-**Prepare demo cart** rechecks the chosen offer and creates a separate draft-cart record. It does not reserve inventory, initiate payment, or buy anything. Repeating the same action with the same idempotency key returns the same draft rather than creating another one. A stale recommendation cannot bypass current action-time eligibility checks.
-
-### Implementation and current validation boundary
-
-- **Shared Node.js core:** one implementation of lookup, eligibility, and draft-cart rules is reused by the local in-memory preview and the Firebase Cloud Function adapter.
-- **Firebase/Firestore:** products are documents in `products`; their offers live in `products/{id}/offers`; draft carts are stored separately. This is a document model of relationships, not a graph database.
-- **Flutter:** the repository includes a compiled Flutter web client. Static analysis, eight tests and the release build pass. A separate lightweight web preview exercises the same API.
-- **Agent behavior:** deterministic bounded tools are the default. Separately configured Gemini or Ollama orchestration can choose tools, while rights, freshness, stock, and action validation remain authoritative code. No orchestration framework is necessary for this bounded workflow.
-
-Local Firebase Hosting → Cloud Function → Firestore lookup, draft creation and idempotent retry have been verified. The backend has 48 passing policy/contract tests and 12 passing synthetic evaluation scenarios. These checks do not establish a deployed cloud service, production security or live-model reliability; real Gemini validation awaits a configured API key.
-
-### Deliberate tradeoffs
-
-Firebase and Flutter were selected for prototype speed and a visible end-to-end flow. For a Microsoft interview, explain that the API, eligibility contract and evaluation approach are portable; an Azure implementation could use Azure Functions and a suitable document store. The portfolio demonstrates product decisions and trusted actions rather than claiming that one cloud stack is the only design.
-
-| Decision | Benefit | Cost and next evidence needed |
+| Decision | Benefit | Limitation |
 |---|---|---|
-| Start with one grocery request and location | Makes product, budget, location, and inventory constraints easy to evaluate | Does not establish broader grocery coverage or multi-location behavior |
-| Reject stale offers even when cheaper | Reduces unsupported shopping recommendations | Lowers answer coverage; measure whether feed-refresh investment restores useful coverage |
-| Revalidate at draft creation | Prevents acting on an offer that has become ineligible | Adds a second check and possible user disappointment; explain changes and support an eligible alternative |
-| Create drafts, not purchases | Demonstrates an explicit action with bounded consequences | Does not prove checkout, reservation, payment, or fulfillment integration |
-| Use explicit rights, freshness, and stock checks | Gives every consumer a consistent exposure contract | Requires policy ownership, revocation handling, and connector reliability before production |
-| Ship a deterministic baseline first | Makes the demo reproducible without API keys or model downloads | Does not prove LLM reliability; run the same evaluation set against live-model mode separately |
-| Share a Node core across preview and Firebase adapters | Keeps business rules consistent while allowing a quick local demo | Adapter integration, deployment, and security still require separate verification |
-| Use Firestore documents and subcollections | Fits the narrow product-to-offer lookup and draft workflow | Does not provide a graph query engine or prove large-scale identity clustering |
+| One category, one item, two cities | Makes intent preservation and failures inspectable | Does not establish broad shopping coverage |
+| Strict parser even in model mode | Prevents unsupported constraints from becoming actions | Rejects many natural-language requests an unconstrained model could interpret |
+| Filter first, rank by price second | Avoids promoting invalid evidence because it is cheap | Reduces apparent answer coverage |
+| Validate the model's selection against deterministic ranking | Makes selection behavior testable | The model is not an independent recommender |
+| Draft instead of checkout | Provides a real persisted action with bounded consequences | Does not demonstrate merchant ordering, payment, or inventory reservation |
+| Frozen catalog time | Keeps failure scenarios reproducible | Does not prove live freshness; proposal expiry uses a separate real clock |
+| Shared core with two storage adapters | Keeps policy and action validation consistent | Emulator and local tests do not establish production service quality |
+| Return the completed trace | Makes the actual request inspectable without simulated progress | No streaming tool events or model-token streaming |
 
-## GTM → one partner, one category, explicit gates
+## Adoption path — proposed, not executed
 
-This is a proposed rollout, not an executed launch. Start with one internal or design-partner shopping experience and a narrow set of high-value intents. Provide a quickstart, API schema, example queries, eligibility semantics, and a known-limitations page. Review failed queries with the partner before adding broad catalog coverage.
+The next useful pilot would pair one authorized grocery feed with one consuming experience. Agree on product identity, permissions, observation times, supported actions, and failure semantics before broadening categories.
 
-Progress through **offline evaluation → limited pilot → production consideration**. Before a pilot, require no rights leaks in the evaluation set, correct product/location handling, supported factual claims, clear abstention, action-time revalidation, idempotent retries, and stable API behavior. Production readiness also needs real merchant agreements, reliable refresh/revocation, authentication and user-scoped authorization, Firestore security rules, service objectives, operational ownership, and scale testing. The prototype does not establish those capabilities.
-
-### Proposed 30 / 60 / 90-day roadmap
-
-| Window | Product work | Decision / exit evidence |
+| Stage | Work | Evidence needed to proceed |
 |---|---|---|
-| First 30 days | Interview shoppers, merchants, and partner developers; agree the local-grocery use case; establish data/API semantics and action boundaries; validate Flutter and Firebase paths | An agreed quality contract, a verified client/service integration, and a baseline showing where answers or actions fail |
-| Days 31–60 | Connect one authorized feed, run a limited partner pilot, instrument gap reasons and draft-cart completion | Evidence that fresh, eligible coverage improves useful answers and draft completion without relaxing trust gates |
-| Days 61–90 | Address the largest validated gaps; evaluate a second partner or location; test reliability, revocation, and operational readiness | An evidence-based expansion decision; evaluate checkout separately only if customer value and partner readiness justify it |
+| Baseline | Run synthetic cases and local integrations | Correct matching, restricted-data exclusion, abstention, and draft retry behavior |
+| Limited pilot | Replace fixtures with an authorized feed and user-scoped access; use a real clock | Useful eligible coverage, reliable refresh/revocation, and controlled action failures |
+| Expansion decision | Add another location, category, or consumer based on observed demand | A measured benefit large enough to justify operational and integration cost |
 
-## Metrics → measure the foundation and its usefulness
+Checkout is a separate product decision. It would require partner support, current readiness checks, an inventory/order protocol, and payment and fulfillment handling.
 
-These are proposed metric definitions. Report actual test counts and denominators when measured; do not present targets as achieved outcomes.
+## Measurement
 
-| Metric | Definition |
-|---|---|
-| Supported-answer rate | Answers whose factual claims are supported by eligible evidence / evaluated factual answers |
-| Eligible-answer coverage | In-scope evaluated intents with a correct eligible offer / in-scope evaluated intents |
-| Freshness compliance | Surfaced offers within the declared policy / surfaced offers |
-| Rights exposure defects | Restricted offers exposed to a consumer or model as usable evidence; target zero in the evaluation set |
-| Match accuracy | Correct product and location selections within the requested budget / evaluated selections |
-| Action eligibility | Draft actions that pass current offer validation / successful draft actions |
-| Retry integrity | Repeated requests with the same idempotency key that return the same draft / evaluated repeated requests |
-| Gap mix | Requests blocked by missing coverage, stale evidence, restrictions, or stock; preserve reason counts |
-| API latency and errors | Measured median/p95 and error rate, labeled with environment, sample size, and whether a model was used |
-| Pilot adoption, later | Time to first successful integration, repeat partner usage, useful-answer rate, and eligible draft completion observed with real users |
+**Implemented:** each search reports candidate, eligible, and rejected offer counts plus aggregate rejection reasons. The evaluation script runs twelve synthetic cases. Tests exercise policy, model-protocol checks, and draft correctness. The [validation record](validation.md) lists actual executed checks.
 
-Small fixture tests demonstrate expected behavior; they do not estimate production error rates. Revenue, conversion, and retention remain hypotheses until a real pilot can measure them.
+**Proposed for a real pilot:** supported-answer rate, eligible-answer coverage, product/location match accuracy, freshness compliance, rights exposure defects, action rejection reasons, same-key retry integrity, integration time, and measured latency/error distributions. Report denominators, environment, and model mode for each result.
 
-## My contribution and transferable experience
-
-Suggested interview language, to adapt to your exact ownership:
-
-> “My experience spans merchant and customer workflows through FBA and Local Services Ads, and developer infrastructure through LiteRT. For this prototype, I chose to connect those perspectives: a platform that respects merchant constraints, gives customers grounded local-shopping answers, and gives developers a predictable contract for taking action. I scoped the problem, selected the quality gates, made the coverage-versus-trust tradeoffs explicit, and limited the first action to a revalidated draft cart.”
-
-Use your LiteRT experience as evidence of how you work: forming a shared proposal when priorities were stalled, aligning five teams, agreeing client priorities and a roadmap, and finding a sample-app path when a core client's ramp delayed the launch checkpoint. Explain which decisions you personally drove and which engineering outcomes the team delivered.
-
-Be transparent that this portfolio prototype was developed with AI coding assistance. Your interview contribution is the problem selection, product judgment, evaluation criteria, and understanding of the implementation—not an unsupported claim that you independently wrote every line.
+A small fixture suite is not a production accuracy estimate. No conversion, retention, revenue, merchant adoption, or production SLO outcome is claimed. Prioritize gaps using observed demand, customer impact, partner reach, effort, and confidence; identity and rights failures remain release gates.

@@ -9,6 +9,7 @@
   const money = (value, currency = 'USD') => value !== null && value !== undefined && Number.isFinite(Number(value)) ? new Intl.NumberFormat('en-US', { style: 'currency', currency: /^[A-Z]{3}$/.test(currency) ? currency : 'USD' }).format(Number(value)) : 'Unavailable';
   const check = '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m2 6 2.5 2.5L10 3"/></svg>';
   const cartIcon = '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3 3h2l2 10h8l2-7H6M8 17h.01M14 17h.01"/></svg>';
+  const agentMark = '<span class="assistant-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="8" cy="8" r="3.4" fill="#4285f4"/><circle cx="16" cy="8" r="3.4" fill="#ea4335"/><circle cx="8" cy="16" r="3.4" fill="#fbbc04"/><circle cx="16" cy="16" r="3.4" fill="#34a853"/></svg></span>';
   const yogurtArt = '<div class="product-art" aria-hidden="true"><svg viewBox="0 0 80 95"><ellipse cx="40" cy="85" rx="24" ry="4" fill="#dce2ce"/><path d="M17 23h46l-5 56c-10 5-26 5-36 0z" fill="#fdfdf6" stroke="#d7ddc8"/><path d="M19 34h42l-3 35c-11 5-25 5-36 0z" fill="#dce6c7"/><path d="M21 47c8-8 13-11 20-9 8 2 12 9 18 5v24c-11 5-25 5-36 0z" fill="#a7bb8b"/><path d="M22 58c8-6 15-2 22-4s11-3 15-7l-1 20c-11 5-25 5-36 0z" fill="#7e9b66"/><ellipse cx="40" cy="23" rx="25" ry="5" fill="#e9eedb" stroke="#cfd9bd"/><path d="M15 22v4c15 5 35 5 50 0v-4" fill="#e3e9d4" stroke="#cfd9bd"/><ellipse cx="40" cy="22" rx="25" ry="4" fill="#f5f7ea"/><rect x="26" y="42" width="28" height="21" rx="2" fill="#f8faee"/><text x="40" y="50" text-anchor="middle" font-family="Georgia,serif" font-size="5.5" fill="#6a7d50">plant-based</text><text x="40" y="58" text-anchor="middle" font-family="Georgia,serif" font-size="8" fill="#5e7546">yogurt</text><path d="M39 36c-6 0-7-6-7-6 6 0 7 6 7 6Zm2 0c6 0 7-6 7-6-6 0-7 6-7 6Z" fill="#748d58"/></svg></div>';
 
   function showError(message = '') { $('error-banner').textContent = message; $('error-banner').hidden = !message; }
@@ -54,7 +55,7 @@
 
   function addThinking() {
     const node = document.createElement('article'); node.id = 'thinking-message'; node.className = 'chat-message assistant-message';
-    node.innerHTML = '<span class="assistant-mark" aria-hidden="true">ct</span><div class="assistant-body"><div class="assistant-label">Checking the evidence</div><div class="busy-indicator" aria-label="Request in progress"><span></span><span></span><span></span></div></div>';
+    node.innerHTML = `${agentMark}<div class="assistant-body"><div class="assistant-label">Checking the evidence</div><div class="busy-indicator" aria-label="Request in progress"><span></span><span></span><span></span></div></div>`;
     $('chat-history').append(node); scrollChat();
   }
 
@@ -71,10 +72,10 @@
   function addAssistantMessage(result) {
     const node = document.createElement('article'); node.className = 'chat-message assistant-message';
     node.dataset.run = result.run_id;
-    const modeLabel = result.mode === 'demo' ? 'DEMO · NO LLM' : humanize(result.mode || 'agent').toUpperCase();
+    const modeLabel = result.mode === 'demo' ? 'Demo · no LLM' : humanize(result.mode || 'agent');
     const offer = result.recommendation;
     const statusLabel = result.status === 'abstained' ? 'No eligible offer · no cart action' : result.status === 'clarify' ? 'A detail is needed before acting' : '';
-    node.innerHTML = `<span class="assistant-mark" aria-hidden="true">ct</span><div class="assistant-body"><div class="assistant-label">Commerce assistant<span class="response-mode">${escape(modeLabel)}</span></div><p class="assistant-answer">${escape(result.answer || 'The backend did not return an answer.')}</p>${offer ? renderOffer(offer, result.action, result.run_id) : ''}${statusLabel ? `<span class="abstain-label">${escape(statusLabel)}</span>` : ''}<div class="cart-result" data-cart-result="${escape(result.run_id)}"></div></div>`;
+    node.innerHTML = `${agentMark}<div class="assistant-body"><div class="assistant-label">Commerce assistant<span class="response-mode">${escape(modeLabel)}</span></div><p class="assistant-answer">${escape(result.answer || 'The backend did not return an answer.')}</p>${offer ? renderOffer(offer, result.action, result.run_id) : ''}${statusLabel ? `<span class="abstain-label">${escape(statusLabel)}</span>` : ''}<div class="cart-result" data-cart-result="${escape(result.run_id)}"></div></div>`;
     $('chat-history').append(node);
     const cartButton = node.querySelector('.cart-button');
     if (cartButton) cartButton.addEventListener('click', () => prepareCart(result.run_id, cartButton));
@@ -90,14 +91,32 @@
     });
   }
 
+  function traceSummary(item, result) {
+    const data = item.data || {};
+    if (item.kind === 'tool_call') {
+      const args = data.arguments || {};
+      return [data.name, args.location, typeof args.max_price === 'number' ? `Budget ${money(args.max_price)}` : null].filter(Boolean).join(' · ');
+    }
+    if (item.kind === 'tool_result' && data.metrics) {
+      return `${data.metrics.eligible_offers} eligible offers from ${data.metrics.candidate_offers} candidates. ${data.metrics.rejected_offers} held back.`;
+    }
+    if (item.kind === 'policy') {
+      return [data.freshness_limit_hours !== undefined ? `${data.freshness_limit_hours}h freshness window` : null, data.stock_required ? humanize(data.stock_required) : null, data.message].filter(Boolean).join(' · ');
+    }
+    if (item.kind === 'prompt') return result?.mode === 'demo' ? 'A deterministic answer template. No language model was called.' : 'The model prompt and validated evidence selection.';
+    if (item.kind === 'action') return data.approval || (data.status ? `${humanize(data.status)} · ${data.note || ''}` : data.tool || '');
+    return '';
+  }
+
   function renderTrace(trace, result) {
     state.trace = Array.isArray(trace) ? trace : [];
     $('trace-empty').hidden = state.trace.length > 0; $('trace-list').hidden = state.trace.length === 0;
     $('trace-list').innerHTML = state.trace.map((item, index) => {
       const kind = ['tool_call', 'tool_result', 'policy', 'prompt', 'action'].includes(item.kind) ? item.kind : 'tool_result';
       const duration = typeof item.duration_ms === 'number' ? `${Number(item.duration_ms.toFixed(1))} ms` : '';
-      const kindLabel = kind === 'prompt' && result?.mode === 'demo' ? 'DEMO TEMPLATE' : humanize(kind).toUpperCase();
-      return `<li class="trace-item"><span class="trace-sequence" aria-hidden="true">${index + 1}</span><div class="trace-item-header"><span class="trace-item-title">${escape(item.title || humanize(kind))}</span><span class="trace-duration">${duration}</span></div><details class="trace-detail kind-${kind}" ${index < 3 || kind === 'policy' || kind === 'action' ? 'open' : ''}><summary><span class="trace-kind">${escape(kindLabel)}</span></summary><pre><code>${highlightJSON(item.data)}</code></pre></details></li>`;
+      const kindLabel = kind === 'prompt' && result?.mode === 'demo' ? 'Demo template' : humanize(kind);
+      const summary = traceSummary(item, result);
+      return `<li class="trace-item"><span class="trace-sequence" aria-hidden="true">${index + 1}</span><div class="trace-item-header"><span class="trace-item-title">${escape(item.title || humanize(kind))}</span><span class="trace-duration">${duration}</span></div>${summary ? `<p class="trace-description">${escape(summary)}</p>` : ''}<details class="trace-detail kind-${kind}" ${index === 0 ? 'open' : ''}><summary><span class="trace-kind">${escape(kindLabel)} · inspect details</span></summary><pre><code>${highlightJSON(item.data)}</code></pre></details></li>`;
     }).join('');
     if (result) {
       $('metric-candidates').textContent = result.metrics?.candidate_offers ?? '—';
@@ -107,7 +126,7 @@
       $('run-id').title = result.run_id || '';
       $('storage-label').textContent = `Storage: ${result.storage || state.health?.storage || 'unknown'}`;
       $('catalog-label').textContent = result.catalog_version ? `Catalog: ${result.catalog_version}` : 'Frozen synthetic fixtures';
-      $('execution-badge').textContent = result.mode === 'demo' ? 'DETERMINISTIC DEMO' : `${humanize(result.mode || 'agent').toUpperCase()} AGENT`;
+      $('execution-badge').textContent = result.mode === 'demo' ? 'Demo · no LLM' : `${humanize(result.mode || 'agent')} agent`;
     }
     $('trace-status').textContent = `${state.trace.length} observable ${state.trace.length === 1 ? 'operation' : 'operations'}`;
     $('trace-scroll').scrollTop = 0;
@@ -185,11 +204,11 @@
   $('reset').addEventListener('click', () => {
     if (state.busy) return;
     state.response = null; state.requests.clear(); state.cartKeys.clear(); state.trace = [];
-    $('chat-history').innerHTML = '<div class="welcome" id="welcome"><span class="assistant-mark" aria-hidden="true">ct</span><div><p>Tell me what you’re looking for.</p><p class="welcome-detail">I’ll check the catalog and merchant rules before suggesting an action.</p></div></div>';
+    $('chat-history').innerHTML = `<div class="welcome" id="welcome">${agentMark}<div><p>Tell me what you’re looking for.</p><p class="welcome-detail">I’ll check the catalog and merchant rules before suggesting an action.</p></div></div>`;
     $('message').value = 'Get me Kite Hill yogurt under $6 in Mountain View';
     $('scenario').value = 'baseline'; $('mode').value = 'demo';
     $('trace-list').innerHTML = ''; $('trace-list').hidden = true; $('trace-empty').hidden = false;
-    $('trace-status').textContent = 'Ready to inspect'; $('execution-badge').textContent = 'DETERMINISTIC DEMO';
+    $('trace-status').textContent = 'Ready to inspect'; $('execution-badge').textContent = 'Demo · no LLM';
     for (const id of ['metric-candidates', 'metric-eligible', 'metric-rejected']) $(id).textContent = '—';
     $('run-id').textContent = 'Waiting for a request'; showError(); $('message').focus();
   });
