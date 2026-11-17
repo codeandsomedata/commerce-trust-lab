@@ -1,0 +1,141 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1530" viewBox="0 0 1600 1530" role="img" aria-labelledby="title desc">
+<title id="title">Commerce Trust Lab: Gemini-first architecture</title>
+<desc id="desc">The browser and Flutter clients send an explicit request to a shared server. A supported-intent parser runs before Gemini call one generates a search_catalog tool call. The server validates exact constraints, retrieves products and offers from memory or Firestore, filters policy failures, and sends only eligible evidence to Gemini call two. It validates the selected offer, renders factual text, and stores a ten-minute proposal. A separate approved action revalidates the records and creates or replays one draft. Credentials stay server-side; no payment or inventory reservation occurs.</desc>
+<defs>
+<marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto-start-reverse"><path d="M1 1 L9 5 L1 9 Z" fill="#4285F4"/></marker>
+<marker id="green-arrow" markerWidth="10" markerHeight="10" refX="8" refY="5" orient="auto"><path d="M1 1 L9 5 L1 9 Z" fill="#188038"/></marker>
+<style>
+text{font-family:Arial,Helvetica,sans-serif;fill:#202124} .title{font-size:42px;font-weight:700;letter-spacing:-1px}.subtitle{font-size:21px;fill:#5F6368}.section{font-size:17px;font-weight:700;letter-spacing:1.4px}.heading{font-size:21px;font-weight:700}.body{font-size:17px;fill:#3C4043}.small{font-size:15px;fill:#5F6368}.label{font-size:15px;fill:#1967D2;font-weight:700}.num{font-size:16px;font-weight:700;fill:#1967D2}.mono{font-family:monospace;font-size:16px;fill:#3C4043}
+</style>
+</defs>
+<rect width="1600" height="1530" fill="#FFFFFF"/>
+<rect x="36" y="30" width="34" height="6" rx="3" fill="#4285F4"/><rect x="75" y="30" width="34" height="6" rx="3" fill="#EA4335"/><rect x="114" y="30" width="34" height="6" rx="3" fill="#FBBC04"/><rect x="153" y="30" width="34" height="6" rx="3" fill="#34A853"/>
+
+<text x="36" y="98" class="title">Commerce Trust Lab</text>
+<text x="36" y="137" class="subtitle">Gemini plans. The platform validates. The shopper approves the action.</text>
+<rect x="36" y="166" width="940" height="36" rx="18" fill="#F8F9FA" stroke="#F8F9FA"/>
+<text x="53" y="190" class="small">DEFAULT: GEMINI   ·   2 MODEL CALLS PER SUPPORTED REQUEST   ·   NO AUTO-RUN ON OPEN</text>
+<rect x="36" y="230" width="300" height="912" rx="22" fill="#F8F9FA" stroke="#E8EAED"/>
+<rect x="362" y="230" width="880" height="912" rx="22" fill="#F4F8FF" stroke="#D2E3FC"/>
+<rect x="1268" y="230" width="296" height="912" rx="22" fill="#F8F9FA" stroke="#E8EAED"/>
+<text x="58" y="262" class="section">CLIENTS</text>
+<text x="386" y="262" class="section" style="fill:#1967D2">APPLICATION SERVER</text>
+<text x="1290" y="262" class="section">GEMINI API</text>
+<rect x="58" y="282" width="256" height="110" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<text x="78" y="318" class="heading">Shopper request</text>
+<text x="78" y="348" class="body">Browser / Flutter web</text>
+<text x="78" y="372" class="body">or Android client</text>
+<rect x="390" y="282" width="824" height="86" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<circle cx="418" cy="313" r="15" fill="#E8F0FE"/>
+<text x="413" y="319" class="num">1</text>
+<text x="442" y="320" class="heading">Shared HTTP API</text>
+<text x="410" y="348" class="body">Node server or Firebase HTTP Function  →  service.mjs dispatch()</text>
+<path d="M314 325 H386" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="390" y="414" width="824" height="100" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<circle cx="418" cy="445" r="15" fill="#E8F0FE"/>
+<text x="413" y="451" class="num">2</text>
+<text x="442" y="452" class="heading">Parse supported intent</text>
+<text x="410" y="480" class="body">One yogurt pickup item · exact budget, city, brand, flavor, size and dietary tags</text>
+<text x="410" y="504" class="body">Unsupported request → clarify before any model call</text>
+<path d="M802 368 V408" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="1290" y="414" width="252" height="116" rx="18" fill="#E8F0FE" stroke="#AECBFA"/>
+<text x="1310" y="450" class="heading">Call 1 · Tool intent</text>
+<text x="1310" y="480" class="body">Query + tool schema</text>
+<text x="1310" y="504" class="body">→ search_catalog(args)</text>
+<path d="M1214 456 H1284" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="1016" y="404" class="label">Query + schema only</text>
+<rect x="390" y="562" width="824" height="86" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<circle cx="418" cy="593" r="15" fill="#E8F0FE"/>
+<text x="413" y="599" class="num">3</text>
+<text x="442" y="600" class="heading">Validate the model call</text>
+<text x="410" y="628" class="body">Exactly one allowed tool · schema validation · exact normalized-intent equality</text>
+<path d="M1416 530 V546 H802 V556" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<text x="58" y="453" class="heading">No provider key</text>
+<text x="58" y="484" class="body">No direct database access.</text>
+<text x="58" y="508" class="body">Health checks configuration;</text>
+<text x="58" y="532" class="body">it does not test the model.</text>
+<rect x="58" y="590" width="256" height="167" rx="16" fill="#FFFFFF" stroke="#E8EAED"/>
+<text x="77" y="624" class="heading">Supported request</text>
+<text x="77" y="655" class="body">“Get me Kite Hill yogurt</text>
+<text x="77" y="679" class="body">under $6 in Mountain</text>
+<text x="77" y="703" class="body">View.”</text>
+<rect x="1290" y="580" width="252" height="160" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<text x="1310" y="616" class="heading">Provider boundary</text>
+<text x="1310" y="646" class="body">Key stays on the server</text>
+<text x="1310" y="670" class="body">in an HTTPS header.</text>
+<text x="1310" y="694" class="body">No raw restricted offers.</text>
+<text x="1310" y="718" class="body">No purchase tools.</text>
+<rect x="390" y="696" width="370" height="109" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<circle cx="418" cy="727" r="15" fill="#E8F0FE"/>
+<text x="413" y="733" class="num">4</text>
+<text x="442" y="734" class="heading">Catalog retrieval</text>
+<text x="410" y="762" class="body">Match canonical products</text>
+<text x="410" y="786" class="body">Read merchant offers</text>
+<rect x="844" y="696" width="370" height="109" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<text x="864" y="732" class="heading">Storage adapter</text>
+<text x="864" y="762" class="body">Memory fixtures OR Firestore</text>
+<text x="864" y="786" class="body">products/{id}/offers/{id}</text>
+<path d="M802 648 V674 H575 V690" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M760 748 H838" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M844 774 H766" fill="none" stroke="#4285F4" stroke-width="2.5" marker-end="url(#arrow)"/>
+<rect x="390" y="853" width="824" height="112" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<circle cx="418" cy="884" r="15" fill="#E8F0FE"/>
+<text x="413" y="890" class="num">5</text>
+<text x="442" y="891" class="heading">Eligibility → permitted evidence</text>
+<text x="410" y="919" class="body">Display rights · ≤6h age · in stock · pickup · city · USD price · budget · attribution</text>
+<text x="410" y="943" class="body">Public fields only; rank by price, then offer_id; expose aggregate rejection counts</text>
+<path d="M575 805 V847" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="1290" y="853" width="252" height="112" rx="18" fill="#E8F0FE" stroke="#AECBFA"/>
+<text x="1310" y="889" class="heading">Call 2 · Evidence</text>
+<text x="1310" y="919" class="body">Query + eligible offers</text>
+<text x="1310" y="943" class="body">→ { offer_id } or null</text>
+<path d="M1214 904 H1284" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="390" y="1013" width="500" height="107" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<circle cx="418" cy="1044" r="15" fill="#E8F0FE"/>
+<text x="413" y="1050" class="num">6</text>
+<text x="442" y="1051" class="heading">Verify + render</text>
+<text x="410" y="1079" class="body">Require deterministic best ID; render record</text>
+<text x="410" y="1103" class="body">Empty evidence → abstain; no proposal</text>
+<rect x="920" y="1013" width="294" height="107" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<text x="940" y="1049" class="heading">Action proposal</text>
+<text x="940" y="1079" class="body">Only if allow_cart = true</text>
+<text x="940" y="1103" class="body">Stored token · 10-minute TTL</text>
+<path d="M1416 965 V989 H640 V1007" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<path d="M890 1068 H914" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="58" y="1013" width="256" height="107" rx="18" fill="#FFFFFF" stroke="#DADCE0"/>
+<text x="78" y="1049" class="heading">Answer + proposal</text>
+<text x="78" y="1079" class="body">Completed execution trace</text>
+<text x="78" y="1103" class="body">No private model reasoning</text>
+<path d="M390 1068 H320" fill="none" stroke="#4285F4" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#arrow)"/>
+<rect x="36" y="1194" width="1528" height="260" rx="22" fill="#F1F8F3" stroke="#CEEAD6"/>
+<text x="390" y="1227" class="section" style="fill:#137333">SEPARATE ACTION REQUEST</text>
+<text x="920" y="1227" class="small">NO MODEL CALL · NO CHECKOUT · NO STOCK HOLD</text>
+<rect x="58" y="1253" width="256" height="169" rx="18" fill="#FFFFFF" stroke="#CEEAD6"/>
+<text x="78" y="1289" class="heading">Shopper approves</text>
+<text x="78" y="1319" class="body">Prepare demo cart</text>
+<text x="78" y="1343" class="body">POST /api/cart</text>
+<text x="78" y="1367" class="body">Token + stable retry key</text>
+<rect x="390" y="1253" width="360" height="169" rx="18" fill="#FFFFFF" stroke="#CEEAD6"/>
+<text x="410" y="1289" class="heading">New draft: revalidate</text>
+<text x="410" y="1319" class="body">Current product + offer; price equality</text>
+<text x="410" y="1343" class="body">Expiry · stock · permissions · city</text>
+<text x="410" y="1367" class="body">Pickup · currency · age · attribution</text>
+<rect x="790" y="1253" width="424" height="169" rx="18" fill="#FFFFFF" stroke="#CEEAD6"/>
+<text x="810" y="1289" class="heading">Create or replay one draft</text>
+<text x="810" y="1319" class="body">Same key: replay before expiry / offer checks</text>
+<text x="810" y="1343" class="body">New: draft + used_key in one transaction</text>
+<text x="810" y="1367" class="body">Consumed with a different key → 409</text>
+<text x="810" y="1391" class="body">Memory: synchronous, one-process equivalent</text>
+<rect x="1290" y="1253" width="252" height="169" rx="18" fill="#FFFFFF" stroke="#CEEAD6"/>
+<text x="1310" y="1289" class="heading">Draft result</text>
+<text x="1310" y="1319" class="body">Quantity 1 · status: draft</text>
+<text x="1310" y="1343" class="body">No charge or purchase</text>
+<text x="1310" y="1367" class="body">No merchant contact</text>
+<path d="M186 1120 V1247" fill="none" stroke="#188038" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green-arrow)" stroke-dasharray="7 6"/>
+<text x="198" y="1178" class="small">Explicit action</text>
+<path d="M314 1340 H384" fill="none" stroke="#188038" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green-arrow)"/>
+<path d="M750 1340 H784" fill="none" stroke="#188038" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green-arrow)"/>
+<path d="M1214 1340 H1284" fill="none" stroke="#188038" stroke-width="2.5" stroke-linejoin="round" marker-end="url(#green-arrow)"/>
+<text x="36" y="1490" class="small">Synthetic catalog: 4 products / 11 offers · frozen observation clock. Proposal expiry uses the real wall clock.</text>
+<text x="36" y="1515" class="small">Offline Demo is an explicit alternative that skips both model calls. A missing key or provider failure never silently switches modes.</text>
+</svg>

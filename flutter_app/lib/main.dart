@@ -97,7 +97,9 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
   final _chatScroll = ScrollController();
   final List<_Turn> _turns = [];
   String _scenario = 'baseline';
-  String _mode = 'demo';
+  String _mode = 'gemini';
+  JsonMap? _health;
+  bool _healthUnavailable = false;
   _Turn? _selected;
   bool _busy = false;
 
@@ -107,6 +109,42 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
     'restricted': 'Merchant opt-out',
     'out_of_stock': 'Out of stock',
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadConfiguration();
+  }
+
+  Future<void> _loadConfiguration() async {
+    try {
+      final health = await _api.health();
+      if (mounted) setState(() => _health = health);
+    } catch (_) {
+      if (mounted) setState(() => _healthUnavailable = true);
+    }
+  }
+
+  String get _modeStatus {
+    if (_mode == 'demo') return 'Demo selected · no model calls';
+    if (_healthUnavailable) {
+      return '${_mode == 'gemini' ? 'Gemini' : 'Ollama'} selected · '
+          'server configuration unavailable';
+    }
+    final health = _health;
+    if (health == null) return 'Checking server configuration…';
+    final modes = health['modes'];
+    final configured = modes is Map && modes[_mode] == true;
+    if (_mode == 'gemini') {
+      final model = health['gemini_model'];
+      return configured
+          ? 'Gemini configured${model is String ? ' · $model' : ''}'
+          : 'Gemini setup needed · configure server key and model';
+    }
+    return configured
+        ? 'Ollama configured · request runs on your server'
+        : 'Ollama setup needed · configure the server';
+  }
 
   @override
   void dispose() {
@@ -353,14 +391,8 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
           initialValue: _mode,
           onSelected: (value) => setState(() => _mode = value),
           itemBuilder: (context) => const [
-            PopupMenuItem(
-              value: 'demo',
-              child: Text('Demo · deterministic workflow'),
-            ),
-            PopupMenuItem(
-              value: 'gemini',
-              child: Text('Gemini · needs server API key'),
-            ),
+            PopupMenuItem(value: 'gemini', child: Text('Gemini · live model')),
+            PopupMenuItem(value: 'demo', child: Text('Demo · no model calls')),
             PopupMenuItem(
               value: 'ollama',
               child: Text('Ollama · needs local model'),
@@ -453,12 +485,12 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                             style: const TextStyle(color: ink, fontSize: 12),
                             items: const [
                               DropdownMenuItem(
-                                value: 'demo',
-                                child: Text('Demo · deterministic workflow'),
+                                value: 'gemini',
+                                child: Text('Gemini · live model'),
                               ),
                               DropdownMenuItem(
-                                value: 'gemini',
-                                child: Text('Gemini · needs server API key'),
+                                value: 'demo',
+                                child: Text('Demo · no model calls'),
                               ),
                               DropdownMenuItem(
                                 value: 'ollama',
@@ -468,10 +500,14 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
                             onChanged: _busy
                                 ? null
                                 : (value) =>
-                                      setState(() => _mode = value ?? 'demo'),
+                                      setState(() => _mode = value ?? 'gemini'),
                           ),
                         ),
                       ],
+                    ),
+                    Text(
+                      _modeStatus,
+                      style: const TextStyle(color: secondaryInk, fontSize: 11),
                     ),
                   ],
                 ),
@@ -564,10 +600,14 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
         ),
       ),
       const SizedBox(height: 18),
-      const Text(
-        'Ask for groceries. The backend checks the catalog, stock, '
-        'freshness, and merchant permissions before offering an action.',
-        style: TextStyle(color: secondaryInk, height: 1.6),
+      Text(
+        _mode == 'demo'
+            ? 'Ask for groceries. Demo uses a deterministic workflow to check '
+                  'the catalog, stock, freshness, and merchant permissions.'
+            : 'Ask for groceries. ${_mode == 'gemini' ? 'Gemini' : 'Ollama'} '
+                  'requests catalog evidence; the backend checks stock, '
+                  'freshness, and merchant permissions before offering an action.',
+        style: const TextStyle(color: secondaryInk, height: 1.6),
       ),
       const SizedBox(height: 24),
       for (final suggestion in [
@@ -598,11 +638,10 @@ class _AgentWorkbenchState extends State<AgentWorkbench> {
           ),
         ),
       const SizedBox(height: 16),
-      _Pill(
-        _mode == 'demo'
-            ? 'DEMO MODE: NO MODEL CALL'
-            : '${_mode.toUpperCase()} MODE: SERVER MUST BE CONFIGURED',
-        color: const Color(0xFF5F6368),
+      const Text(
+        'You choose when to run the agent. Model calls begin only after '
+        'you send a request; there is no automatic Demo fallback.',
+        style: TextStyle(fontSize: 12, color: secondaryInk, height: 1.5),
       ),
     ],
   );

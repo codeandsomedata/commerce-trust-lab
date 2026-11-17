@@ -4,9 +4,13 @@ This Flutter app targets **Android and web**. It turns a shopping question into 
 
 The left pane contains the conversation and action. The right pane shows the actual tool parameters, catalog response, policy checks, and grounding prompt returned by the server. On narrow screens, the panes become tabs.
 
+**Gemini is selected from the first launch.** The client reads `/api/health` to show the server's configuration status and model name. "Configured" means the server reports its model settings; it is not a successful provider connection test. Opening the app never starts an agent run. The first model call occurs only after you send a supported shopping request. Missing credentials or provider errors remain visible; the client never silently switches to Demo.
+
 ## Run locally
 
 Start the Node API from the repository root as described in the root README. The web client defaults to `http://127.0.0.1:8787`; an Android debug build defaults to `http://10.0.2.2:8787` for the emulator.
+
+Configure `GEMINI_API_KEY` and `GEMINI_MODEL` on that server for live Gemini use. Keep the key in the server's ignored local environment file, never in Flutter source or a Dart define. For a run without a model provider, explicitly select **Demo · no model calls** in the app.
 
 With Flutter 3.50.0 or newer installed (Dart 3.14+):
 
@@ -84,7 +88,7 @@ Android's debug network configuration permits HTTP only for the emulator host an
 
 ## Firebase Cloud Function
 
-`API_BASE` is the base URL before `/api/agent` and `/api/cart`. The Cloud Function is named `commerce`, so its base is `https://REGION-PROJECT.cloudfunctions.net/commerce`.
+`API_BASE` is the base URL before `/api/health`, `/api/agent`, and `/api/cart`. The Cloud Function is named `commerce`, so its base is `https://REGION-PROJECT.cloudfunctions.net/commerce`.
 
 ```sh
 flutter build web --release \
@@ -96,11 +100,11 @@ The optional token is sent in `Authorization: Bearer ...`. A token compiled into
 
 ## Demo walkthrough
 
-1. Keep **Fresh offers** and **Demo · deterministic workflow** selected. Ask “Get me Kite Hill yogurt under $6 in Mountain View.”
+1. Keep **Fresh offers** and the default **Gemini · live model** selected. Check that the server is configured, then ask “Get me Kite Hill yogurt under $6 in Mountain View.” This invokes the server-side Gemini workflow. For a provider-free demonstration, explicitly switch to **Demo · no model calls** before sending.
 2. Read the grounded answer and inspect the API execution trace. The displayed prices, inventory, and merchants are synthetic.
 3. Click **Prepare demo cart**. This is an explicit action request; the server revalidates the offer. The result remains a draft: no order is placed and no inventory is reserved.
 4. Switch to **Stale price**, **Merchant opt-out**, or **Out of stock** and repeat the request. Explain why a trustworthy platform can change its answer or abstain.
-5. Optional: configure the server for Gemini or Ollama, then select that mode. The UI does not silently substitute a simulated model.
+5. Inspect the reported mode in the trace. Gemini and Ollama require server configuration; Demo runs a deterministic workflow. The UI does not silently substitute a simulated model.
 
 The current API responds with one completed JSON execution, so trace events appear after the response. This is an execution audit view, not token streaming or a display of a model's private reasoning. A next iteration could stream public tool events over SSE.
 
@@ -112,11 +116,11 @@ flutter test
 flutter build web --release --base-href /flutter/
 ```
 
-Tests cover Android emulator/USB API routing, request parameters, cart retry identity, API rejection handling, optional authorization, action gating after abstention, explicit cart approval, compact tabs, keyboard-open input and short landscape screens.
+Tests cover Android emulator/USB API routing, the Gemini default, configuration-only startup, explicit Demo selection, no silent fallback after a Gemini error, request parameters, cart retry identity, API rejection handling, optional authorization, action gating after abstention, explicit cart approval, compact tabs, keyboard-open input and short landscape screens.
 
-Verified locally on November 14, 2026 with Flutter 3.50.0 / Dart 3.14.0: all 12 tests passed, static analysis was clean, and the release web build succeeded. A headless Chrome run against the actual Flutter build and Firestore emulator also passed: the default query returned an eligible offer, explicit approval produced a draft cart, a typed out-of-stock request correctly abstained, and the mobile assistant/trace tabs worked without browser errors. Screenshots are in `../docs/flutter-*.png`.
+Verified locally on November 16, 2026 with Flutter 3.50.0 / Dart 3.14.0: all 15 tests passed, static analysis was clean, and the release web build succeeded. A headless Chrome run against the actual Flutter build and Firestore emulator also passed: startup selected Gemini and checked configuration without running the agent; explicitly selecting Demo returned an eligible offer; approval produced a draft cart; a typed out-of-stock request correctly abstained; and the mobile assistant/trace tabs worked without browser errors. No model-provider calls were made. Screenshots in `../docs/flutter-initial.png` and `../docs/flutter-mobile.png` show the default Gemini setup state; the other `flutter-*.png` captures show explicit Demo runs.
 
-`tool/visual_qa.cjs` reproduces the browser checks using Playwright and Chrome. Set `PLAYWRIGHT_PATH` and `CHROME_PATH` if they are not available in the usual locations; optionally set `DEMO_URL`. Run it from this directory with the local API and Firestore emulator running. The harness waits for Flutter's editable text focus before typing, and uses its accessibility tree to inspect the canvas-rendered app.
+`tool/visual_qa.cjs` reproduces the browser checks using Playwright and Chrome. It verifies that Gemini is selected at startup without an agent request, then explicitly selects Demo for all shopping tests so the checks make no model calls. Set `PLAYWRIGHT_PATH` and `CHROME_PATH` if they are not available in the usual locations; optionally set `DEMO_URL`. Run it from this directory with the local API and Firestore emulator running. The harness waits for Flutter's editable text focus before typing, and uses its accessibility tree to inspect the canvas-rendered app.
 
 Live Gemini/Ollama and a deployed Firebase backend require separate configuration and integration checks.
 

@@ -7,7 +7,96 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
 
+http.Response configurationResponse({bool configured = false}) => http.Response(
+  jsonEncode({
+    'default_mode': 'gemini',
+    'gemini_model': configured ? 'test-gemini-model' : null,
+    'modes': {'gemini': configured, 'demo': true, 'ollama': false},
+  }),
+  200,
+);
+
 void main() {
+  testWidgets(
+    'starts in Gemini, checks configuration only, and never falls back',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1300, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final requests = <String>[];
+      final api = CatalogApi(
+        client: MockClient((request) async {
+          requests.add(request.url.path);
+          if (request.url.path == '/api/health') return configurationResponse();
+          expect(jsonDecode(request.body)['mode'], 'gemini');
+          return http.Response(
+            '{"error":{"message":"Gemini is not configured on this server."}}',
+            503,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      await tester.pumpWidget(CommerceTrustApp(api: api));
+      await tester.pumpAndSettle();
+      expect(requests, ['/api/health']);
+      expect(find.text('Gemini · live model'), findsOneWidget);
+      expect(find.textContaining('Gemini setup needed'), findsOneWidget);
+      await tester.tap(
+        find.text('Get me Kite Hill yogurt under \$6 in Mountain View'),
+      );
+      await tester.pumpAndSettle();
+      expect(requests, ['/api/health', '/api/agent']);
+      expect(
+        find.text('Gemini is not configured on this server.'),
+        findsOneWidget,
+      );
+      expect(find.text('Prepare demo cart'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'Demo requires explicit selection and configured is not connected',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1300, 1000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      var runs = 0;
+      final api = CatalogApi(
+        client: MockClient((request) async {
+          if (request.url.path == '/api/health') {
+            return configurationResponse(configured: true);
+          }
+          runs++;
+          expect(jsonDecode(request.body)['mode'], 'demo');
+          return http.Response(
+            '{"status":"abstained","mode":"demo",'
+            '"answer":"No eligible offers.","trace":[]}',
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      await tester.pumpWidget(CommerceTrustApp(api: api));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Gemini configured · test-gemini-model'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('connected'), findsNothing);
+      expect(runs, 0);
+      await tester.tap(find.text('Gemini · live model'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Demo · no model calls').last);
+      await tester.pumpAndSettle();
+      expect(find.text('Demo selected · no model calls'), findsOneWidget);
+      await tester.tap(
+        find.text('Get me Kite Hill yogurt under \$6 in Mountain View'),
+      );
+      await tester.pumpAndSettle();
+      expect(runs, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('does not show a cart action when the API abstains', (
     tester,
   ) async {
@@ -15,32 +104,34 @@ void main() {
     addTearDown(() => tester.binding.setSurfaceSize(null));
     final api = CatalogApi(
       client: MockClient(
-        (_) async => http.Response(
-          jsonEncode({
-            'run_id': 'test-abstain',
-            'status': 'abstained',
-            'mode': 'demo',
-            'storage': 'fixture',
-            'answer': 'No eligible offers match this request.',
-            'recommendation': null,
-            'action': null,
-            'trace': [
-              {
-                'id': 'policy',
-                'kind': 'policy',
-                'title': 'No eligible offers',
-                'data': {'reason': 'merchant_opt_out'},
-              },
-            ],
-            'metrics': {
-              'candidate_offers': 1,
-              'eligible_offers': 0,
-              'rejected_offers': 1,
-            },
-            'catalog_version': 'test-v1',
-          }),
-          200,
-        ),
+        (request) async => request.url.path == '/api/health'
+            ? configurationResponse()
+            : http.Response(
+                jsonEncode({
+                  'run_id': 'test-abstain',
+                  'status': 'abstained',
+                  'mode': 'gemini',
+                  'storage': 'fixture',
+                  'answer': 'No eligible offers match this request.',
+                  'recommendation': null,
+                  'action': null,
+                  'trace': [
+                    {
+                      'id': 'policy',
+                      'kind': 'policy',
+                      'title': 'No eligible offers',
+                      'data': {'reason': 'merchant_opt_out'},
+                    },
+                  ],
+                  'metrics': {
+                    'candidate_offers': 1,
+                    'eligible_offers': 0,
+                    'rejected_offers': 1,
+                  },
+                  'catalog_version': 'test-v1',
+                }),
+                200,
+              ),
       ),
     );
     addTearDown(api.close);
@@ -63,6 +154,7 @@ void main() {
     var cartRequests = 0;
     final api = CatalogApi(
       client: MockClient((request) async {
+        if (request.url.path == '/api/health') return configurationResponse();
         if (request.url.path == '/api/cart') {
           cartRequests++;
           expect(
@@ -87,7 +179,7 @@ void main() {
           jsonEncode({
             'run_id': 'test-ready',
             'status': 'ready',
-            'mode': 'demo',
+            'mode': 'gemini',
             'storage': 'fixture',
             'answer': 'I found one eligible offer.',
             'recommendation': {
@@ -134,7 +226,11 @@ void main() {
   ) async {
     await tester.binding.setSurfaceSize(const Size(390, 844));
     addTearDown(() => tester.binding.setSurfaceSize(null));
-    await tester.pumpWidget(const CommerceTrustApp());
+    final api = CatalogApi(
+      client: MockClient((_) async => configurationResponse()),
+    );
+    addTearDown(api.close);
+    await tester.pumpWidget(CommerceTrustApp(api: api));
     expect(find.text('Assistant'), findsOneWidget);
     expect(find.text('API execution trace'), findsOneWidget);
     await tester.tap(find.text('API execution trace'));
@@ -154,6 +250,7 @@ void main() {
     var requests = 0;
     final api = CatalogApi(
       client: MockClient((request) async {
+        if (request.url.path == '/api/health') return configurationResponse();
         requests++;
         expect(
           jsonDecode(request.body)['message'],
@@ -163,7 +260,7 @@ void main() {
           jsonEncode({
             'run_id': 'keyboard-test',
             'status': 'abstained',
-            'mode': 'demo',
+            'mode': 'gemini',
             'storage': 'fixture',
             'answer': 'No eligible offers.',
             'action': null,
@@ -206,7 +303,11 @@ void main() {
     (tester) async {
       await tester.binding.setSurfaceSize(const Size(720, 320));
       addTearDown(() => tester.binding.setSurfaceSize(null));
-      await tester.pumpWidget(const CommerceTrustApp());
+      final api = CatalogApi(
+        client: MockClient((_) async => configurationResponse()),
+      );
+      addTearDown(api.close);
+      await tester.pumpWidget(CommerceTrustApp(api: api));
       expect(tester.takeException(), isNull);
       await tester.tap(find.byTooltip('Choose scenario'));
       await tester.pumpAndSettle();

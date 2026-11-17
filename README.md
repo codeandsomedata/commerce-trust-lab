@@ -1,6 +1,6 @@
 # Commerce Trust Lab
 
-A grocery-shopping agent with an inspectable execution trace. Ask for one yogurt pickup item, compare eligible offers, and explicitly prepare a draft cart. A Flutter client and a lightweight browser client share the same catalog API, eligibility rules, and action service.
+A Gemini-powered grocery-shopping agent with an inspectable execution trace. Ask for one yogurt pickup item, compare eligible offers, and explicitly prepare a draft cart. Gemini turns the request into a catalog tool call and selects from permitted evidence; the platform validates both decisions before returning an answer or proposing an action. A Flutter client and a lightweight browser client share the same service.
 
 > **Try:** “Get me Kite Hill yogurt under $6 in Mountain View.”
 
@@ -20,7 +20,9 @@ All prices, merchants, inventory, dietary attributes, and source links are synth
 - Creates a short-lived action proposal when the selected merchant permits cart preparation.
 - Writes one draft per proposal only after an explicit action request, with safe same-key retries.
 
-The default **Demo** mode is deterministic and makes no model calls. Optional **Gemini** and **Ollama** modes use real model requests for structured intent extraction and evidence selection. They cannot widen the supported request language or bypass the platform's checks. Final answer text always comes from a verified catalog record and an application template.
+**Gemini is selected from the start**, in both clients and when an API request omits `mode`. A supported submitted request makes two real server-side Gemini calls: structured intent extraction, then eligible-evidence selection. Opening the app only reads health/configuration; it does not call the model. Configure a server-side key before sending a live request. Missing configuration is shown explicitly, and failed model calls never silently fall back.
+
+For a reproducible offline run, explicitly choose **Demo**; it is deterministic and makes no model calls. **Ollama** is an optional local model adapter. Every mode preserves the same supported request contract and platform checks. Final answer text always comes from a verified catalog record and an application template.
 
 ### Supported request scope
 
@@ -37,58 +39,55 @@ The default **Demo** mode is deterministic and makes no model calls. Optional **
 
 Unsupported wording, combined alternatives, unknown brands/cities, additional quantities, nutrition claims, delivery, and exclusions require clarification. The parser is deliberately conservative. This is not a general-purpose shopping or allergy-advice system. Chat history is displayed by the clients, but each API request is processed independently; there is no conversational memory.
 
-## Quick start: no model or database required
+## Quick start with Gemini
 
-Use Node.js **22 or newer**. The default local server uses only Node's standard library and the in-memory fixture store:
+Use Node.js **22 or newer**. The local server uses an in-memory synthetic catalog by default; a database is not required to connect Gemini.
 
 ```sh
 git clone https://github.com/codeandsomedata/commerce-trust-lab.git
 cd commerce-trust-lab
+# First setup only; preserve an existing local configuration.
+cp -n .env.example .env.local
+```
+
+Open `.env.local` **locally** and fill in `GEMINI_API_KEY` with a key from [Google AI Studio](https://aistudio.google.com/apikey). The template sets `GEMINI_MODEL=gemini-3.5-flash-lite`; choose a supported model available to your account if needed. Never put the key in a chat, source file, browser setting, or screenshot. `.env.local` is ignored by Git.
+
+```sh
 npm start
 ```
 
-Open [the browser preview](http://127.0.0.1:8787). Select a scenario and send the example request. **Fresh & available** returns a synthetic eligible offer; **Stale offer**, **Merchant restriction**, and **Out of stock** make all offers fail the corresponding check and produce abstention.
+Open [the browser preview](http://127.0.0.1:8787). **Gemini** is the initial model selection. After configuration, submit the example request to run the two model calls. A configuration indicator is not a successful connection test: authentication, quota, network access, and model availability are checked only by an actual request.
+
+An optional explicit live connection check runs the same two-call workflow against synthetic evidence:
+
+```sh
+npm run check:gemini
+```
+
+This check and live requests use Gemini quota and may incur provider charges. The repository does not include a key or a preverified provider connection. See [Gemini function calling](https://ai.google.dev/gemini-api/docs/function-calling) and [available Gemini models](https://ai.google.dev/gemini-api/docs/models) for the provider contract.
+
+### Offline alternative
+
+Start the server without model credentials and explicitly select **Demo** in the app. The offline workflow uses the same fixture catalog, policy, proposal, and action service, but skips both model calls. API callers use `"mode":"demo"` explicitly. Select **Fresh & available** for an eligible offer; **Stale offer**, **Merchant restriction**, and **Out of stock** produce abstention by making all offers fail the corresponding check.
 
 ```sh
 npm test
 npm run eval
 ```
 
-`npm test` uses Node's test runner. The Firestore integration test is skipped unless an emulator host is configured. `npm run eval` runs twelve deterministic shopping cases; it makes no paid model calls.
+These commands make no paid model calls. The Firestore integration test is skipped unless an emulator host is configured. `npm run eval` explicitly runs twelve deterministic shopping cases.
 
-If `.env.local` already exists, inspect its settings locally: `server.mjs` can select Firestore or enable model modes from that file. Do not publish credentials. Changing the storage adapter requires a server restart because the store is constructed at startup.
+If `.env.local` already exists, inspect its settings locally: `server.mjs` can select Firestore or enable model modes from that file. Changing the storage adapter requires a restart because the store is constructed at startup.
 
 ## Technical design
 
 ### Components and request paths
 
-```mermaid
-flowchart TB
-  subgraph Clients
-    F[Flutter web / Android client]
-    W[Plain JavaScript browser client]
-  end
-  F --> HTTP
-  W --> HTTP
-  HTTP[Local Node HTTP server or Firebase HTTP Function]
-  HTTP --> S[Shared service: validate request and coordinate tools]
-  S --> P[Supported-intent parser]
-  S -. optional intent extraction .-> M[Gemini API or local Ollama]
-  S --> C[Catalog matching and offer policy]
-  C --> D{Storage adapter}
-  D --> MEM[In-memory fixtures]
-  D --> FS[Firestore product / offer documents]
-  C --> E[Eligible public evidence only]
-  E -. optional evidence selection .-> M
-  E --> R[Validate selected ID and render factual answer]
-  R --> PROP[Store expiring cart proposal]
-  PROP --> UI[Answer, proposed action, completed trace]
-  UI --> F
-  UI --> W
-  F -->|Explicit Prepare demo cart request| A[Revalidate proposal / offer / product]
-  W -->|Explicit Prepare demo cart request| A
-  A --> CART[Create or replay one draft]
-```
+![Detailed Commerce Trust architecture: clients, Gemini tool calls, server-side validation, catalog policy, and an explicitly approved transactional draft](web/architecture.svg)
+
+[Open the full-size diagram](web/architecture.svg) · [Local architecture view](http://127.0.0.1:8787/architecture.html) · [Sequence diagrams and API reference](docs/architecture.md)
+
+The blue flow is the recommendation request; the green flow begins only after an explicit cart action. The model-provider boundary is separate from the application server: Gemini sees the query, tool schema, and permitted evidence, while credentials and policy enforcement stay on the server. The displayed trace is returned with a completed response, not streamed progress or private model reasoning.
 
 The shared implementation lives in `functions/src/`. Both `server.mjs` and the Firebase function call `dispatch()` in `service.mjs`. Storage adapters implement three operations: `catalog(scenario)`, `propose(data)`, and `draft(token, idempotencyKey)`. The clients do not access Firestore or model providers directly.
 
@@ -96,12 +95,12 @@ The shared implementation lives in `functions/src/`. Both `server.mjs` and the F
 
 1. **Validate the request.** The message must contain 1–1,500 characters. The service accepts only the defined scenario and mode values.
 2. **Parse supported intent.** `extractDemoIntent()` runs in every mode. Unsupported input returns `status: "clarify"` without a recommendation, proposal, or model call.
-3. **Optionally ask a model for a tool call.** A live model must produce exactly one `search_catalog` call. The service validates the arguments and requires the normalized result to equal the independently parsed intent. A changed budget, city, brand, or other constraint fails with HTTP `422` before retrieval.
+3. **Ask Gemini for a tool call.** In the default live path, the model must produce exactly one `search_catalog` call. The service validates the arguments and requires the normalized result to equal the independently parsed intent. A changed budget, city, brand, or other constraint fails with HTTP `422` before retrieval.
 4. **Retrieve and filter.** Products are matched by category and optional brand, flavor, size, and dietary tags. Candidate offers then pass the policy below. Rejected rows are removed before the evidence-selection model request and before client responses.
-5. **Rank and optionally select evidence.** Eligible offers are sorted by ascending price, then `offer_id`. In live mode, a second model request receives the user query and eligible API evidence and returns an `offer_id`, or `null` if there are no offers. It must match the service's first sorted offer exactly. An invented, hidden, or more expensive selection fails with `422`.
+5. **Rank and select evidence.** Eligible offers are sorted by ascending price, then `offer_id`. In the default Gemini path, a second model request receives the user query and eligible API evidence and returns an `offer_id`, or `null` if there are no offers. It must match the service's first sorted offer exactly. An invented, hidden, or more expensive selection fails with `422`.
 6. **Compose the result.** The service renders the answer from the selected record. It does not use free-form model prose as the factual answer. If `allow_cart` is true, it stores a ten-minute proposal tied to that product, offer, price, intent, and scenario.
 
-This is a bounded two-call model workflow, not an open-ended planning loop. The model has one exposed search tool and an evidence-selection step; it has no purchase, payment, catalog-editing, or permission-changing tool. Temperature is set to zero, but correctness comes from validation rather than an assumption of deterministic model output.
+Explicit offline Demo mode skips steps 3 and 5's model call while retaining the same parser, policy, ranking, and renderer. This is a bounded two-call model workflow, not an open-ended planning loop. The model has one exposed search tool and an evidence-selection step; it has no purchase, payment, catalog-editing, or permission-changing tool. Temperature is set to zero, but correctness comes from validation rather than an assumption of deterministic model output.
 
 ### Offer eligibility policy
 
@@ -159,14 +158,14 @@ Clients retain a stable key for retrying a given action. A new search creates a 
 | Method and route | Request | Result |
 |---|---|---|
 | `GET /api/health` | None | Storage mode, configured model modes, fixture version and clock |
-| `POST /api/agent` | `message`, optional `scenario` and `mode` | `ready`, `clarify`, or `abstained`; answer, recommendation, action proposal, trace, and counts |
+| `POST /api/agent` | `message`, optional `scenario` (baseline) and `mode` (Gemini) | `ready`, `clarify`, or `abstained`; answer, recommendation, action proposal, trace, and counts |
 | `POST /api/v1/catalog/search` | Structured intent | `api_version: "1.0"`, eligible offers, constraints, metrics, and rejection counts; always uses baseline fixtures |
 | `POST /api/cart` | Proposal `token`, `idempotency_key` | Draft and action trace, or an error |
 
 ```sh
 curl http://127.0.0.1:8787/api/agent \
   -H 'Content-Type: application/json' \
-  -d '{"message":"Get me Kite Hill yogurt under $6 in Mountain View","scenario":"baseline","mode":"demo"}'
+  -d '{"message":"Get me Kite Hill yogurt under $6 in Mountain View","scenario":"baseline","mode":"gemini"}'
 ```
 
 Structured catalog request:
@@ -188,15 +187,15 @@ Unknown structured-search fields are rejected. Optional brand/flavor may be omit
 
 Errors return JSON with an `error` string. Typical statuses are `400` for invalid input, `401` for a failed deployed-demo access gate, `404` for an unknown route/proposal, `409` for expired or changed action evidence or an alternate retry key, `422` for a model disagreement, `502` for dependency/model failures, and `503` for an unconfigured model. The local server also rejects oversized request bodies with `413`. Clarification and abstention are normal `200` results, not transport failures. See [the detailed API and trust-boundary reference](docs/architecture.md).
 
-## Optional model modes
+## Model configuration
 
-### Gemini
+### Gemini — default path
 
-Use a model available to your account. The repository does not bundle Gemini or require it for the default demo.
+Gemini is a hosted provider called from the server. The repository contains the integration, not model weights or credentials. Use the quick start above to configure your local key.
 
 1. Obtain credentials through [Google AI Studio](https://aistudio.google.com/apikey).
 2. If absent, copy `.env.example` to `.env.local`. Set `GEMINI_API_KEY` and `GEMINI_MODEL` locally. Keep this file out of Git.
-3. Start the server, refresh the preview, and select Gemini. The local server rereads allowed settings on API requests; storage-adapter changes still require a restart.
+3. Start the server and refresh the preview. Gemini is already selected. The local server rereads allowed settings on API requests; storage-adapter changes still require a restart.
 4. Optionally run `npm run check:gemini` to make an actual two-call connection check using the synthetic catalog. This can use provider quota and incur charges; it is separate from the offline tests.
 
 The key is sent to Google's API in a server-side header, never in a prompt or browser bundle. A supported live request sends the user query to Gemini; the second call also sends eligible catalog evidence. No raw excluded rows are included. Upstream error bodies are not copied into client errors, and failures do not silently fall back to Demo mode.
@@ -308,7 +307,7 @@ See [the validation record](docs/validation.md) for dated results and unverified
 
 ## Implemented and future work
 
-**Implemented:** bounded parsing; optional model adapters; canonical product/offer fixtures; shared eligibility policy; versioned catalog response; observable execution trace; explicit proposals and draft creation; memory and Firestore adapters; transactional retries; browser and Flutter clients; local Firebase configuration; tests and synthetic evaluation.
+**Implemented:** Gemini-first clients and API; bounded two-call model integration; explicit offline and local-model alternatives; bounded parsing; canonical product/offer fixtures; shared eligibility policy; versioned catalog response; observable execution trace; explicit proposals and draft creation; memory and Firestore adapters; transactional retries; browser and Flutter clients; local Firebase configuration; tests and synthetic evaluation.
 
 **Not implemented:** merchant ingestion, live prices/stock, broad product identity matching, inventory reservation, checkout/payment/fulfillment, multi-item carts, conversation state, user/partner isolation, rate limiting, production telemetry/SLOs, paginated retrieval, proposal TTL cleanup, or model-event streaming. Real-time freshness requires replacing the frozen fixture clock with a current clock and trusted ingestion timestamps.
 
@@ -325,6 +324,7 @@ See [the validation record](docs/validation.md) for dated results and unverified
 | `functions/src/fixtures.mjs` | Synthetic catalog, frozen clock, failure scenarios |
 | `server.mjs` | Loopback API and browser/Flutter static hosting |
 | `web/`, `flutter_app/` | Two clients of the shared API |
+| `web/architecture.svg` | Canonical, editable architecture diagram used by the app and this README |
 | `functions/test/`, `scripts/evaluate.mjs` | Contract tests, transaction test, synthetic cases |
 | `docs/` | Architecture, walkthrough, product scope, validation, screenshots |
 

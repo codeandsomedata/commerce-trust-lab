@@ -27,39 +27,47 @@ class CatalogApi {
   final String _accessToken;
   final String baseUrl;
 
+  // Configuration only. This endpoint never calls a model provider.
+  Future<JsonMap> health() => _request('/api/health');
+
   Future<JsonMap> run({
     required String message,
     required String scenario,
     required String mode,
-  }) => _post('/api/agent', {
-    'message': message,
-    'scenario': scenario,
-    'mode': mode,
-  });
+  }) => _request(
+    '/api/agent',
+    payload: {'message': message, 'scenario': scenario, 'mode': mode},
+  );
 
   Future<JsonMap> prepareCart({
     required String token,
     required String idempotencyKey,
-  }) => _post('/api/cart', {'token': token, 'idempotency_key': idempotencyKey});
+  }) => _request(
+    '/api/cart',
+    payload: {'token': token, 'idempotency_key': idempotencyKey},
+  );
 
-  Future<JsonMap> _post(String path, JsonMap payload) async {
+  Future<JsonMap> _request(String path, {JsonMap? payload}) async {
     if (baseUrl.isEmpty) {
       throw const ApiException(
         'Configure API_BASE with your HTTPS backend URL when building the app.',
         0,
       );
     }
-    final response = await _client
-        .post(
-          Uri.parse('$baseUrl$path'),
-          headers: {
-            'Content-Type': 'application/json',
-            if (_accessToken.isNotEmpty)
-              'Authorization': 'Bearer $_accessToken',
-          },
-          body: jsonEncode(payload),
-        )
-        .timeout(const Duration(seconds: 90));
+    final uri = Uri.parse('$baseUrl$path');
+    final headers = {
+      if (payload != null) 'Content-Type': 'application/json',
+      if (_accessToken.isNotEmpty) 'Authorization': 'Bearer $_accessToken',
+    };
+    final response =
+        await (payload == null
+                ? _client.get(uri, headers: headers)
+                : _client.post(
+                    uri,
+                    headers: headers,
+                    body: jsonEncode(payload),
+                  ))
+            .timeout(Duration(seconds: payload == null ? 10 : 90));
     final dynamic decoded;
     try {
       decoded = jsonDecode(response.body);

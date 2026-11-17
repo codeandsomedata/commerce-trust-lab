@@ -4,7 +4,7 @@
 
 Start the local server using the [README](../README.md). For persisted local data, start and seed the Firebase emulator and run the server with the Firestore adapter. Open the browser preview or the built Flutter app.
 
-Use **Demo** mode for a reproducible walkthrough. It makes no model calls. Optional Gemini/Ollama modes require separate configuration and validation. All displayed merchant data, inventory, prices, and dietary attributes are synthetic, and the catalog observation clock is frozen.
+The app starts in **Gemini** mode. Configure the server-side key and model using the README before a live walkthrough, then verify a supported request. Opening the screen makes no model call. A configured indicator alone is not a connection test. If no key is available, explicitly select **Offline Demo** for a reproducible walkthrough and identify it as offline; there is no silent fallback. All merchant data, inventory, prices, and dietary attributes are synthetic, and the catalog clock is frozen.
 
 ## 0:00–0:45 — State the task
 
@@ -48,15 +48,15 @@ The scenarios are non-persistent overlays, not changes sent to merchants. Try an
 
 ## 3:30–4:20 — Explain the model boundary
 
-In Demo mode, show the trace label identifying the deterministic renderer. Do not call it a live LLM request.
+In a configured Gemini run, show the first `search_catalog` tool call and the final evidence-selection prompt. In an explicitly selected offline run, identify the deterministic trace accurately and explain the live path using the diagram.
 
-> “In an optional live mode, the first model request produces a structured search tool call. The service requires those constraints to match its independent parser. The second model request sees only eligible evidence and selects an offer ID. The service checks that selection and renders factual answer text from the record.”
+> “Gemini runs twice in the default path. The first model request produces a structured search tool call. The service requires those constraints to match its independent parser. The second model request sees only eligible evidence and selects an offer ID. The service checks that selection and renders factual answer text from the record.”
 
-If live mode has been configured and independently verified, repeat one supported request and inspect its evidence-selection prompt. Model failure is surfaced; the service does not silently substitute Demo mode. There is no open-ended tool loop or model-accessible purchase tool.
+No live success should be claimed until a real request completes. Model failure is surfaced; the service does not silently substitute Offline Demo. There is no open-ended tool loop or model-accessible purchase tool.
 
 ## 4:20–5:00 — Connect the UI to the system
 
-Show the architecture diagram in the README.
+Open the [architecture view](http://127.0.0.1:8787/architecture.html) or the [full-size SVG](../web/architecture.svg). Follow the blue recommendation flow, then the separate green approved-action flow.
 
 > “The Flutter and browser clients share a Node service. It can use in-memory fixtures or Firestore through the same adapter interface. Firestore stores product documents, offer subcollections, proposals, and drafts. New draft creation is transactional in the Firestore adapter.”
 

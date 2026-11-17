@@ -10,7 +10,21 @@ async function run() {
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1040 }, deviceScaleFactor: 1 });
     const errors = [];
+    let agentRequests = 0;
     page.on('pageerror', error => errors.push(error.message));
+    page.on('request', request => {
+      if (request.url().endsWith('/api/agent')) {
+        agentRequests++;
+      }
+    });
+    await page.route('**/api/agent', async route => {
+      const mode = JSON.parse(route.request().postData()).mode;
+      if (mode !== 'demo') {
+        await route.abort();
+        throw new Error('Visual checks only permit explicitly selected Demo requests.');
+      }
+      await route.continue();
+    });
     const url = process.env.DEMO_URL || 'http://127.0.0.1:8787/flutter/';
     async function waitForAria(pattern) {
       let snapshot = '';
@@ -28,11 +42,18 @@ async function run() {
     }
     await page.goto(url, { waitUntil: 'networkidle' });
     await enableAccessibility();
+    await waitForAria(/Gemini · live model/);
+    await waitForAria(/Gemini setup needed|Gemini configured/);
+    assert.equal(agentRequests, 0, 'Opening the app must not start a model run.');
     await page.screenshot({ path: path.resolve('../docs/flutter-initial.png'), fullPage: false });
+    await page.getByRole('button', { name: 'Gemini · live model', exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Demo · no model calls', exact: true }).click();
+    await waitForAria(/Demo selected · no model calls/);
     const firstResponse = page.waitForResponse(response => response.url().endsWith('/api/agent'));
     await page.getByRole('button', { name: 'Get me Kite Hill yogurt under $6 in Mountain View', exact: true }).click();
     const ready = await (await firstResponse).json();
     assert.equal(ready.status, 'ready');
+    assert.equal(ready.mode, 'demo');
     await page.getByRole('button', { name: 'Prepare demo cart', exact: true }).waitFor();
     await page.screenshot({ path: path.resolve('../docs/flutter-demo.png'), fullPage: false });
     console.log('READY', JSON.stringify({ status: ready.status, mode: ready.mode, storage: ready.storage, metrics: ready.metrics }));
@@ -74,7 +95,7 @@ async function run() {
     assert.match(await page.locator('body').ariaSnapshot(), /Every action has evidence/);
     await page.screenshot({ path: path.resolve('../docs/flutter-mobile-trace.png'), fullPage: false });
     assert.deepEqual(errors, []);
-    console.log('PASS: actual Flutter query, cart, stock abstention, compact tabs; no browser errors.');
+    console.log('PASS: Gemini default without automatic run, explicit Demo query, cart, stock abstention, compact tabs; no browser errors or model calls.');
   } finally {
     await browser.close();
   }

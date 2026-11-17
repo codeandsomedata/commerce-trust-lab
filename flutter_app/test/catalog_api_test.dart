@@ -8,6 +8,27 @@ import 'package:http/testing.dart';
 
 void main() {
   test(
+    'configuration check uses health without starting an agent run',
+    () async {
+      final api = CatalogApi(
+        accessToken: 'test-demo-gate',
+        client: MockClient((request) async {
+          expect(request.method, 'GET');
+          expect(request.url.path, '/api/health');
+          expect(request.body, isEmpty);
+          expect(request.headers['Authorization'], 'Bearer test-demo-gate');
+          return http.Response(
+            '{"default_mode":"gemini","modes":{"gemini":false}}',
+            200,
+          );
+        }),
+      );
+      addTearDown(api.close);
+      expect((await api.health())['modes']['gemini'], false);
+    },
+  );
+
+  test(
     'Android emulator connects to the host API instead of device loopback',
     () async {
       debugDefaultTargetPlatformOverride = TargetPlatform.android;

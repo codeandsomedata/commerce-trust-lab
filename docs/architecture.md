@@ -2,53 +2,148 @@
 
 Commerce Trust Lab has one shared commerce service and two storage adapters. The Flutter app and browser preview call HTTP endpoints; neither reads Firestore or calls a model directly. This document describes the implementation in `functions/src/`, not a proposed production system. Setup commands and the overall component diagram are in the [root README](../README.md).
 
-## Execution sequence
+## Component map and trust boundaries
+
+![Gemini-first commerce architecture, with separate recommendation and approved-action paths](../web/architecture.svg)
+
+[Open the full-size SVG](../web/architecture.svg). The diagram has one canonical source in `web/architecture.svg`, also served by the local architecture page. Gemini is selected initially; no model request runs until a shopper submits a message. An omitted API `mode` also selects Gemini. A missing key produces a configuration error rather than silently switching modes.
+
+```mermaid
+flowchart TB
+  subgraph CLIENT[Client boundary — no provider key]
+    B[Browser workbench]
+    F[Flutter web / Android]
+    UI[Rendered answer + completed execution trace]
+    CLICK[Explicit Prepare demo cart action]
+  end
+  subgraph SERVER[Application-server boundary]
+    HTTP[Node HTTP server or Firebase HTTP Function]
+    SERVICE[Shared service.mjs dispatcher]
+    PARSER[Independent supported-intent parser]
+    CHECK[Schema + exact normalized-constraint comparison]
+    CATALOG[Catalog search and product matching]
+    POLICY[Offer policy and public evidence projection]
+    VERIFY[Require deterministic best offer ID]
+    RENDER[Server-owned factual answer renderer]
+    PROPOSAL[Ten-minute cart proposal]
+    ACTION[Revalidate product, offer, price, rights and expiry]
+    KEY[Proposal-scoped retry lookup]
+  end
+  subgraph PROVIDER[Gemini API boundary]
+    G1[Call 1: search_catalog function call]
+    G2[Call 2: eligible-evidence selection]
+  end
+  subgraph STORE[Storage adapters — server access only]
+    MEMORY[In-process synthetic fixture store]
+    FIRESTORE[Firestore: products + offer subcollections]
+    DRAFT[Proposal + draft storage]
+  end
+  B --> HTTP
+  F --> HTTP
+  HTTP --> SERVICE --> PARSER
+  PARSER -->|Supported query + tool schema| G1
+  G1 -->|Exactly one function call| CHECK
+  CHECK --> CATALOG
+  CATALOG <--> MEMORY
+  CATALOG <--> FIRESTORE
+  CATALOG --> POLICY
+  POLICY -->|Eligible offers + aggregate counts only| G2
+  G2 -->|offer_id or null| VERIFY
+  VERIFY --> RENDER --> UI
+  RENDER -->|Only when allow_cart is true| PROPOSAL
+  PROPOSAL --> DRAFT
+  PROPOSAL --> UI
+  UI --> CLICK -->|POST /api/cart| KEY
+  KEY -->|Unconsumed proposal only| ACTION
+  KEY -->|Existing same-key draft: replay before rechecks| DRAFT
+  KEY -->|Consumed with a different key| CONFLICT[409 rejection]
+  ACTION -->|Read current records| FIRESTORE
+  ACTION -->|Atomic transaction in Firestore| DRAFT
+  DRAFT -->|Create or replay one draft| UI
+```
+
+The model-provider arrows are server-originated HTTPS requests. The API key is an HTTP header, never client state or model context. Restricted raw catalog rows have no path to Gemini. Explicit **Demo** mode bypasses both model calls while retaining the parser, policy, deterministic selection, and draft checks. Optional Ollama replaces the provider adapter within the same bounded workflow.
+
+## Recommendation sequence — default Gemini path
 
 ```mermaid
 sequenceDiagram
   actor Shopper
-  participant UI as Flutter / browser client
-  participant Service as Shared HTTP service
-  participant Model as Gemini / Ollama (optional)
+  participant UI as Flutter / browser
+  participant Service as Shared service
+  participant Gemini as Gemini API
   participant Catalog as Catalog policy
   participant Store as Memory / Firestore
 
-  Shopper->>UI: Request one yogurt pickup item
-  UI->>Service: POST /api/agent
-  Service->>Service: Parse supported intent and validate input
-  alt Unsupported request
-    Service-->>UI: clarify; no recommendation or action
+  UI->>Service: GET /api/health on open
+  Service-->>UI: Default mode + configuration flags (no provider probe)
+  Shopper->>UI: Submit one yogurt pickup request
+  UI->>Service: POST /api/agent (mode=gemini, or omitted)
+  Service->>Service: Validate input and independently parse intent
+  alt Unsupported wording or constraints
+    Service-->>UI: clarify; no model call, recommendation, or proposal
   else Supported request
-    opt Live model mode
-      Service->>Model: User request + search_catalog schema
-      Model-->>Service: One search_catalog call
-      Service->>Service: Validate exact normalized-intent equality
-    end
+    Service->>Gemini: Call 1: query + search_catalog schema
+    Gemini-->>Service: Exactly one search_catalog call
+    Service->>Service: Validate schema and exact normalized intent
+    Note over Service: Constraint disagreement stops before catalog search
     Service->>Catalog: searchCatalog(intent, scenario)
-    Catalog->>Store: Read products and offers
-    Store-->>Catalog: Catalog records
-    Catalog->>Catalog: Match products, filter offers, sort eligible evidence
-    Catalog-->>Service: Eligible public projection + aggregate counts
-    opt Live model mode
-      Service->>Model: User request + eligible evidence
-      Model-->>Service: offer_id or null
-      Service->>Service: Require deterministic best offer ID
+    Catalog->>Store: Read canonical products and merchant offers
+    Store-->>Catalog: Internal catalog records
+    Catalog->>Catalog: Match product; filter permissions, age, stock,<br/>pickup, city, price, currency, attribution
+    Catalog->>Catalog: Public projection; sort by price then offer_id
+    Catalog-->>Service: Eligible offers + aggregate rejection counts
+    Service->>Gemini: Call 2: query + eligible API evidence
+    Gemini-->>Service: JSON offer_id, or null when no eligible offer
+    Service->>Service: Require ID to equal deterministic best offer
+    Note over Service: Invented or different ID stops before proposal creation
+    alt No eligible offer
+      Service-->>UI: abstained + completed trace
+    else Eligible offer
+      Service->>Service: Render factual answer from selected record
+      opt Selected merchant permits cart preparation
+        Service->>Store: Persist random ten-minute proposal
+        Store-->>Service: Proposal token
+      end
+      Service-->>UI: ready + record + optional action + completed trace
     end
-    opt Selected offer permits a cart
-      Service->>Store: Persist ten-minute proposal
-      Store-->>Service: Random proposal token
-    end
-    Service-->>UI: Rendered answer + proposal + completed trace
   end
-  Shopper->>UI: Prepare demo cart
-  UI->>Service: POST /api/cart with token + stable retry key
-  Service->>Store: draft(token, key)
-  Store->>Store: Return prior same-key draft OR revalidate and create
-  Store-->>Service: Draft or explicit error
-  Service-->>UI: Draft result + action trace
 ```
 
-In a first successful draft creation, the Firestore adapter performs its reads and writes inside a transaction. The in-memory adapter performs the same policy checks synchronously within one process.
+Neither initial page load nor the health request calls Gemini. Configuration flags are not connectivity proof. The chosen model must be available to the configured key, and each supported live request can consume quota. No live-provider success is implied by offline tests or mock responses. The trace is assembled during execution and returned at the end; it does not stream tokens, tool events, or model reasoning.
+
+## Approved action sequence — Firestore adapter
+
+```mermaid
+sequenceDiagram
+  actor Shopper
+  participant UI as Client
+  participant Service as Shared service
+  participant DB as Firestore transaction
+
+  Shopper->>UI: Click Prepare demo cart
+  UI->>Service: POST /api/cart (proposal token + stable key)
+  Service->>Service: Validate token/key format
+  Service->>DB: Begin transaction; read proposal and prior draft
+  Note over DB: Replay lookup precedes expiry and current-offer revalidation
+  alt Proposal already consumed with the same key
+    DB-->>Service: Replay existing draft (no fresh eligibility assertion)
+  else Proposal consumed with a different key
+    DB-->>Service: Reject 409
+  else New draft request
+    DB->>DB: Read current product and offer
+    DB->>DB: Check expiry, product identity/attributes, price equality,<br/>stock, rights, city, pickup, currency, age, attribution
+    alt Evidence changed, missing, expired, or ineligible
+      DB-->>Service: Reject; no draft written
+    else Evidence valid
+      DB->>DB: Atomically create draftCarts/token<br/>and record used_key on cartProposals/token
+      DB-->>Service: One draft for this proposal
+    end
+  end
+  Service-->>UI: Draft + action trace, or explicit error
+```
+
+Existing same-key drafts take an early replay branch, before expiry or current-offer checks. Only a new draft requires the revalidation shown in the action lane. Concurrent same-key requests converge on the same draft. The memory adapter applies the same checks synchronously in one process, without database durability or cross-process transactions. Neither adapter purchases, charges, reserves inventory, or contacts a merchant. The server receives an explicit action request; it cannot independently prove that a human physically clicked a button.
 
 ## Module responsibilities
 
@@ -76,13 +171,15 @@ Returns:
 {
   "storage": "local-memory",
   "modes": {"demo": true, "gemini": false, "ollama": false},
+  "default_mode": "gemini",
+  "gemini_model": null,
   "catalog_version": "synthetic-grocery-v1",
   "synthetic": true,
   "snapshot_at": "2026-11-14T12:00:00.000Z"
 }
 ```
 
-`storage` becomes `firestore` for that adapter. Mode flags indicate configured environment variables, not a connection test. Health does not query Firestore, fetch a model, or verify quota.
+`storage` becomes `firestore` for that adapter. This example represents an unconfigured provider. `default_mode` remains `gemini`; `gemini_model` reports the configured model ID or `null`. Mode flags indicate configured environment variables, not a connection test. Health does not query Firestore, fetch a model, or verify quota.
 
 ### `POST /api/agent`
 
@@ -90,11 +187,11 @@ Returns:
 {
   "message": "Get me Kite Hill yogurt under $6 in Mountain View",
   "scenario": "baseline",
-  "mode": "demo"
+  "mode": "gemini"
 }
 ```
 
-`scenario` defaults to `baseline`; allowed alternatives are `stale`, `restricted`, and `out_of_stock`. Each alternative overlays the corresponding failure on **all** offers without changing stored records. `mode` defaults to `demo`; alternatives are `gemini` and `ollama`.
+`scenario` defaults to `baseline`; allowed alternatives are `stale`, `restricted`, and `out_of_stock`. Each alternative overlays the corresponding failure on **all** offers without changing stored records. `mode` defaults to `gemini`; alternatives are explicitly selected `demo` (offline) and `ollama` (local provider). The example configuration selects `gemini-3.5-flash-lite`; the server uses `GEMINI_MODEL`, not a hard-coded model ID.
 
 The response includes `run_id`, `mode`, `storage`, `catalog_version`, `status`, `answer`, `recommendation`, `action`, `trace`, and `metrics`.
 

@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#f8fafd">
+  <title>Architecture — Commerce Trust Lab</title>
+  <link rel="stylesheet" href="/styles.css">
+  <style>
+    .architecture-page { max-width: 1440px; margin: 0 auto; padding: 24px 30px 50px; }
+    .architecture-intro { max-width: 850px; margin-bottom: 28px; }
+    .architecture-intro h1 { font-size: clamp(28px, 4vw, 42px); margin-bottom: 16px; }
+    .architecture-intro p { color: #5f6368; font-size: 15px; line-height: 1.7; }
+    .architecture-actions { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; }
+    .architecture-actions a { padding: 10px 18px; border-radius: 24px; border: 1px solid #d2e3fc; background: white; color: #185abc; }
+    .architecture-actions a:first-child { background: #1a73e8; color: white; border-color: #1a73e8; }
+    .diagram-frame { margin: 0; background: white; border: 1px solid #dfe5ef; border-radius: 24px; overflow: hidden; }
+    .diagram-frame img { display: block; width: 100%; height: auto; }
+    .diagram-frame figcaption { padding: 16px 22px; color: #5f6368; font-size: 12px; border-top: 1px solid #e2e7ef; }
+    .architecture-steps { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 24px; }
+    .architecture-step { border: 1px solid #dfe5ef; background: white; border-radius: 20px; padding: 22px; }
+    .architecture-step span { color: #1967d2; font-size: 12px; font-weight: 600; }
+    .architecture-step h2 { font-size: 18px; font-weight: 500; margin: 8px 0; }
+    .architecture-step p { font-size: 13px; line-height: 1.7; color: #5f6368; }
+    .architecture-note { margin-top: 24px; color: #5f6368; font-size: 13px; line-height: 1.7; }
+    @media(max-width: 800px) { .architecture-steps { grid-template-columns: 1fr; } .architecture-page { padding: 18px 18px 32px; } }
+  </style>
+</head>
+<body>
+  <header class="app-header">
+    <a class="brand" href="/">Commerce<span class="brand-weight">Trust Lab</span></a>
+    <a class="header-badge architecture-link" href="/">← Back to the agent</a>
+  </header>
+  <main class="architecture-page">
+    <div class="architecture-intro">
+      <p class="eyebrow">THE SYSTEM BEHIND THE ANSWER</p>
+      <h1>Gemini interprets. <span>The platform validates.</span></h1>
+      <p>Two bounded Gemini calls connect a shopping request to eligible catalog evidence. The service checks the model’s outputs, and the shopper approves a separate request before any draft is created.</p>
+      <div class="architecture-actions">
+        <a href="/architecture.svg" target="_blank" rel="noopener">Open full-size diagram ↗</a>
+        <a href="https://github.com/codeandsomedata/commerce-trust-lab/blob/main/docs/architecture.md" target="_blank" rel="noopener">Read the technical design ↗</a>
+      </div>
+    </div>
+    <figure class="diagram-frame">
+      <img src="/architecture.svg" alt="Detailed Commerce Trust Lab architecture: clients, shared API, two Gemini calls, constraint validation, catalog policies, storage, expiring proposals and transactional draft creation.">
+      <figcaption>Open the full-size diagram to zoom. API keys stay on the server; only eligible offer evidence reaches Gemini’s selection call.</figcaption>
+    </figure>
+    <section class="architecture-steps" aria-label="Architecture explained">
+      <article class="architecture-step"><span>01 · UNDERSTAND</span><h2>Request → tool call</h2><p>The independent parser checks supported requests. Gemini returns one <code>search_catalog</code> call. The server requires its normalized constraints to match the parser before searching.</p></article>
+      <article class="architecture-step"><span>02 · GROUND</span><h2>Catalog → verified offer</h2><p>The service filters permissions, freshness, stock and customer constraints. A second Gemini call selects an offer ID from eligible evidence; the server verifies it against the lowest eligible price.</p></article>
+      <article class="architecture-step"><span>03 · ACT</span><h2>Approval → one draft</h2><p>The shopper clicks Prepare demo cart. For a new draft, the service revalidates the proposal and current records. A Firestore transaction creates one draft. A retry with the same key returns the existing draft before those checks.</p></article>
+    </section>
+    <p class="architecture-note">Gemini is selected by default and requires local server credentials. No model call runs merely by opening this page or the app. Offline Demo is an explicit option that skips both model calls. Catalog data is synthetic, the trace arrives with the completed response, and draft creation does not purchase, pay, reserve stock or contact a merchant.</p>
+  </main>
+</body>
+</html>

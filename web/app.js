@@ -13,6 +13,28 @@
   const yogurtArt = '<div class="product-art" aria-hidden="true"><svg viewBox="0 0 80 95"><ellipse cx="40" cy="85" rx="24" ry="4" fill="#dce2ce"/><path d="M17 23h46l-5 56c-10 5-26 5-36 0z" fill="#fdfdf6" stroke="#d7ddc8"/><path d="M19 34h42l-3 35c-11 5-25 5-36 0z" fill="#dce6c7"/><path d="M21 47c8-8 13-11 20-9 8 2 12 9 18 5v24c-11 5-25 5-36 0z" fill="#a7bb8b"/><path d="M22 58c8-6 15-2 22-4s11-3 15-7l-1 20c-11 5-25 5-36 0z" fill="#7e9b66"/><ellipse cx="40" cy="23" rx="25" ry="5" fill="#e9eedb" stroke="#cfd9bd"/><path d="M15 22v4c15 5 35 5 50 0v-4" fill="#e3e9d4" stroke="#cfd9bd"/><ellipse cx="40" cy="22" rx="25" ry="4" fill="#f5f7ea"/><rect x="26" y="42" width="28" height="21" rx="2" fill="#f8faee"/><text x="40" y="50" text-anchor="middle" font-family="Georgia,serif" font-size="5.5" fill="#6a7d50">plant-based</text><text x="40" y="58" text-anchor="middle" font-family="Georgia,serif" font-size="8" fill="#5e7546">yogurt</text><path d="M39 36c-6 0-7-6-7-6 6 0 7 6 7 6Zm2 0c6 0 7-6 7-6-6 0-7 6-7 6Z" fill="#748d58"/></svg></div>';
 
   function showError(message = '') { $('error-banner').textContent = message; $('error-banner').hidden = !message; }
+  function showModelStatus() {
+    const mode = $('mode').value;
+    const configured = state.health?.modes?.[mode];
+    $('model-status').textContent = mode === 'demo'
+      ? 'Offline Demo selected · no model calls.'
+      : mode === 'gemini'
+        ? configured
+          ? `Gemini configured${state.health.gemini_model ? ` · ${state.health.gemini_model}` : ''}. Send a request to begin.`
+          : 'Gemini needs a server-side key and model. See setup, or choose Offline Demo.'
+        : configured ? 'Ollama configured. Send a request to begin.' : 'Ollama needs a local model and server configuration.';
+    if (!state.response) $('execution-badge').textContent = mode === 'demo' ? 'Offline Demo · no LLM' : `${humanize(mode)} selected`;
+  }
+  async function loadHealth() {
+    const health = await request('/api/health'); state.health = health;
+    $('storage-label').textContent = `Storage: ${health.storage || 'unknown'}`;
+    $('catalog-label').textContent = health.catalog_version ? `Catalog: ${health.catalog_version}` : 'Frozen synthetic fixtures';
+    for (const mode of ['gemini', 'ollama']) {
+      const option = $('mode').querySelector(`option[value="${mode}"]`);
+      option.textContent = `${humanize(mode)} · ${health.modes?.[mode] ? 'configured' : 'setup needed'}`;
+    }
+    showModelStatus();
+  }
   function scrollChat() { $('chat-history').scrollTop = $('chat-history').scrollHeight; }
   function setBusy(busy) {
     state.busy = busy;
@@ -138,7 +160,16 @@
     if (!message) { $('message').focus(); return; }
     const scenario = $('scenario').value;
     const mode = $('mode').value;
-    if (!state.health?.modes?.[mode]) { showError('This execution mode is not configured. Choose Demo, or configure the model using the README.'); return; }
+    if (!state.health?.modes?.[mode]) {
+      setBusy(true);
+      try { await loadHealth(); }
+      catch (error) { showError(error.message); return; }
+      finally { setBusy(false); }
+      if (!state.health?.modes?.[mode]) {
+        showError(`${humanize(mode)} is not configured yet. Add its server settings using the setup guide, or explicitly select Offline Demo.`);
+        return;
+      }
+    }
     showError(); addUserMessage(message, scenario); addThinking();
     $('message').value = ''; setBusy(true); $('trace-status').textContent = 'Checking catalog & policy…';
     try {
@@ -186,18 +217,14 @@
   }
 
   async function initialize() {
+    setBusy(true);
     try {
-      const health = await request('/api/health'); state.health = health;
-      $('storage-label').textContent = `Storage: ${health.storage || 'unknown'}`;
-      $('catalog-label').textContent = health.catalog_version ? `Catalog: ${health.catalog_version}` : 'Frozen synthetic fixtures';
-      for (const mode of ['gemini', 'ollama']) {
-        const option = $('mode').querySelector(`option[value="${mode}"]`);
-        option.disabled = !health.modes?.[mode]; option.textContent = `${humanize(mode)}${health.modes?.[mode] ? ' · configured' : ' · not configured'}`;
-      }
-      await runQuery();
+      await loadHealth();
     } catch (error) { showError(error.message); $('storage-label').textContent = 'Backend unavailable'; }
+    finally { setBusy(false); }
   }
 
+  $('mode').addEventListener('change', () => { showError(); showModelStatus(); });
   $('query-form').addEventListener('submit', (event) => { event.preventDefault(); runQuery(); });
   $('message').addEventListener('keydown', (event) => { if (event.key === 'Enter' && !event.shiftKey) { event.preventDefault(); runQuery(); } });
   document.querySelectorAll('.suggestion').forEach((button) => button.addEventListener('click', () => runQuery(button.dataset.query)));
@@ -206,9 +233,9 @@
     state.response = null; state.requests.clear(); state.cartKeys.clear(); state.trace = [];
     $('chat-history').innerHTML = `<div class="welcome" id="welcome">${agentMark}<div><p>Tell me what you’re looking for.</p><p class="welcome-detail">I’ll check the catalog and merchant rules before suggesting an action.</p></div></div>`;
     $('message').value = 'Get me Kite Hill yogurt under $6 in Mountain View';
-    $('scenario').value = 'baseline'; $('mode').value = 'demo';
+    $('scenario').value = 'baseline'; $('mode').value = 'gemini';
     $('trace-list').innerHTML = ''; $('trace-list').hidden = true; $('trace-empty').hidden = false;
-    $('trace-status').textContent = 'Ready to inspect'; $('execution-badge').textContent = 'Demo · no LLM';
+    $('trace-status').textContent = 'Ready to inspect'; showModelStatus();
     for (const id of ['metric-candidates', 'metric-eligible', 'metric-rejected']) $(id).textContent = '—';
     $('run-id').textContent = 'Waiting for a request'; showError(); $('message').focus();
   });

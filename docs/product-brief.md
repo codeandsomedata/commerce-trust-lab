@@ -30,7 +30,7 @@ The example request is **â€œGet me Kite Hill yogurt under $6 in Mountain View.â€
 
 The right-hand pane displays the tool call, eligible catalog evidence, aggregate policy outcomes, answer-composition step, and draft action. On small Flutter screens, the two panes become tabs. Events arrive with the completed response rather than as a live stream.
 
-Demo mode is a deterministic workflow. Optional Gemini/Ollama modes perform structured extraction and evidence selection within the same boundaries. They must agree with the independent parser and deterministic offer ranking. Factual answer text is rendered by the application in all modes.
+Gemini is the default model selection in the clients and API. After a supported request is submitted, two server-side model calls perform structured extraction and eligible-evidence selection. Both outputs must agree with the independent parser and deterministic offer ranking. Factual answer text is rendered by the application in all modes. Initial page load does not call a model; missing credentials remain visible rather than triggering a silent fallback. Explicit Offline Demo and optional local Ollama modes support different run environments without changing the commerce policy.
 
 Products and offers are separate Firestore document types. The local server can use in-memory fixtures or the Firestore adapter; a Firebase HTTP function uses the same core. This is a document model, not a graph database. See [technical design](../README.md#technical-design) for the exact contracts.
 
@@ -38,6 +38,7 @@ Products and offers are separate Firestore document types. The local server can 
 
 | Decision | Benefit | Limitation |
 |---|---|---|
+| Gemini first, explicit offline alternative | Makes the model/tool boundary part of the main experience | Requires a server-side key and provider availability for live runs |
 | One category, one item, two cities | Makes intent preservation and failures inspectable | Does not establish broad shopping coverage |
 | Strict parser even in model mode | Prevents unsupported constraints from becoming actions | Rejects many natural-language requests an unconstrained model could interpret |
 | Filter first, rank by price second | Avoids promoting invalid evidence because it is cheap | Reduces apparent answer coverage |

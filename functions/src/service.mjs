@@ -6,10 +6,10 @@ import {configuredModes,extractWithModel,chooseWithModel,SYSTEM_PROMPT} from './
 function traceEntry(title,kind,data,start=performance.now()) {
   return {id:randomUUID().slice(0,8),title,kind,data,duration_ms:Number((performance.now()-start).toFixed(2))};
 }
-export function health(store) {return {storage:store.storage,modes:configuredModes(),catalog_version:CATALOG_VERSION,synthetic:true,snapshot_at:SNAPSHOT};}
+export function health(store) {return {storage:store.storage,default_mode:'gemini',gemini_model:process.env.GEMINI_MODEL||null,modes:configuredModes(),catalog_version:CATALOG_VERSION,synthetic:true,snapshot_at:SNAPSHOT};}
 
 export async function agentRun(store,body) {
-  const {message,scenario='baseline',mode='demo'}=body||{};
+  const {message,scenario='baseline',mode='gemini'}=body||{};
   if(typeof message!=='string'||!message.trim()||message.length>1500) throw new ApiError(400,'Enter a request between 1 and 1,500 characters.');
   if(!SCENARIOS.includes(scenario)||!['demo','gemini','ollama'].includes(mode)) throw new ApiError(400,'Unknown scenario or model mode.');
   const trace=[],run_id=randomUUID().slice(0,8),base={run_id,mode,storage:store.storage,catalog_version:CATALOG_VERSION};

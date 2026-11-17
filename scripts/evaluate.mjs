@@ -15,7 +15,7 @@ const cases=[
   ['Unsupported quantity','Find four cups of yogurt under $6 in Mountain View','baseline','clarify',null],
 ];
 const results=[];
-for(const [name,message,scenario,status,id]of cases){const result=await agentRun(new MemoryStore(),{message,scenario});results.push({name,passed:result.status===status&&(result.recommendation?.offer_id??null)===id,status:result.status,offer_id:result.recommendation?.offer_id??null});}
+for(const [name,message,scenario,status,id]of cases){const result=await agentRun(new MemoryStore(),{message,scenario,mode:'demo'});results.push({name,passed:result.status===status&&(result.recommendation?.offer_id??null)===id,status:result.status,offer_id:result.recommendation?.offer_id??null});}
 const passed=results.filter(r=>r.passed).length;
 console.log(JSON.stringify({scope:'Original synthetic fixtures; deterministic workflow; no live-model or production accuracy claim',passed,total:results.length,cases:results},null,2));
 process.exitCode=passed===results.length?0:1;
